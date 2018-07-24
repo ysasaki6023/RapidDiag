@@ -11,44 +11,54 @@ import json
 import pprint
 from  tornado.escape import json_decode
 from  tornado.escape import json_encode
-
 from tornado.options import define, options
 
+from io import BytesIO
+from PIL import Image
+import matplotlib.pyplot as plt
+import numpy as np
+
+# TODO: 基本的な画面を表示するAPI
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("index.html")
 
+# TODO: データを受信して、処理する
 class DataReciever(tornado.web.RequestHandler):
     # https://github.com/zhanglongqi/TornadoAJAXSample
     def get(self):
         example_response = {}
         example_response['name'] = 'example'
         example_response['width'] = 1020
-
         self.write(json.dumps(example_response))
+        return
 
     def post(self):
-        json_obj = json_decode(self.request.body)
-        print('Post data received')
+        fileinfo = self.request.files['file'][0]
+        fileName = fileinfo['filename']
+        print(fileinfo["filename"])
+        img = Image.open(BytesIO(fileinfo["body"]))
 
-        for key in list(json_obj.keys()):
-            print('key: %s , value: %s' % (key, json_obj[key]))
+        # TODO: 画像をNNにより分析する
 
-        # new dictionary
+        # TODO: 分析結果をDBへ保存する
+
+        # レスポンスを返す
         response_to_send = {}
-        response_to_send['newkey'] = json_obj['key1']
-
-        print('Response to return')
-
-        pprint.pprint(response_to_send)
-
         self.write(json.dumps(response_to_send))
+        return
+
+# TODO: データの名前・データ種別を設定する
+
+# TODO: データの名前・データ種別を設定する
+
+# TODO: データの分離レベルを取得する
 
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
                 (r"/", MainHandler),
-                (r"/test/", DataReciever)
+                (r"/upload", DataReciever)
             ]
         # settingsでdebugをTrueに設定。設定はこれだけ。
         settings = dict(
