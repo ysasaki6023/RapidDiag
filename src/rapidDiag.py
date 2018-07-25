@@ -1,9 +1,8 @@
 import sys,os,h5py,glob,itertools,re
 import numpy as np
 
-from keras.applications.mobilenet import MobileNet as Net
-from keras.preprocessing import image
-from keras.applications.mobilenet import preprocess_input
+import keras
+from keras.preprocessing import image as keras_image
 
 from keras.layers import Dense, GlobalAveragePooling2D, GlobalMaxPooling2D
 from keras.models import Model
@@ -12,8 +11,9 @@ import matplotlib.pyplot as plt
 from matplotlib import offsetbox
 from sklearn import manifold, datasets, decomposition, ensemble, discriminant_analysis, random_projection, mixture
 
-import tqdm
+from PIL import Image
 
+import tqdm
 
 class rapidDiag(object):
     def __init__(self,platform="cui"):
@@ -23,11 +23,21 @@ class rapidDiag(object):
             self.tqdm = tqdm.tqdm
         elif platform=="notebook":
             self.tqdm = tqdm.tqdm_notebook
+        elif platform=="server":
+            self.tqdm = lambda x:x
 
         return
 
-    def set_model(self,model_type="imagenet",model_layer="last"):
-        base_model = Net(weights='imagenet', include_top=False)
+    def set_model(self,model_type="mobilenet",model_layer="last"):
+        if model_type=="vgg16":
+            self.preprocess_input = keras.applications.vgg16.preprocess_input
+            self.base_model = base_model = keras.applications.vgg16.VGG16(weights='imagenet', include_top=False)
+        elif model_type=="mobilenet":
+            self.preprocess_input = keras.applications.mobilenet.preprocess_input
+            self.base_model = base_model = keras.applications.mobilenet.MobileNet(weights='imagenet', include_top=False)
+        else:
+            assert False, "incorrect model_type"
+
         if model_layer=="last":
             h = base_model.output
         else:
@@ -39,6 +49,18 @@ class rapidDiag(object):
 
         return
 
+    def process_one(self,img,batch_size=64,image_size=(224,224)):
+        """
+        img: PIL Image形式の画像
+        """
+        img = img.resize(image_size,Image.BICUBIC)
+        img = np.asarray(img).astype(np.float32)
+        img.flags.writeable = True
+        x_vec = np.array([img])
+        x = self.preprocess_input(x_vec)
+        features = self.model.predict_on_batch(x)
+        return features
+
     def process(self,batch_size=64,image_size=(224,224)):
         self.fpath_allcls = fpath_allcls = {}
         self.features_allcls = features_allcls = {}
@@ -47,9 +69,9 @@ class rapidDiag(object):
             fpath_allcls[cls] = fpath_all
             features_all = []
             for idx0 in self.tqdm(range(0,len(fpath_all),batch_size),desc=cls,leave=False):
-                x_vec = [image.img_to_array(image.load_img(img_path, target_size=image_size, interpolation="bicubic")) for img_path in fpath_all[idx0:idx0+batch_size]]
+                x_vec = [keras_image.img_to_array(keras_image.load_img(img_path, target_size=image_size, interpolation="bicubic")) for img_path in fpath_all[idx0:idx0+batch_size]]
                 x_vec = np.array(x_vec)
-                x = preprocess_input(x_vec)
+                x = self.preprocess_input(x_vec)
                 features = self.model.predict(x)
                 for f in features:
                     features_all.append(f)
@@ -122,7 +144,7 @@ class rapidDiag(object):
                 dist = np.sum((x[i] - shown_images) ** 2, 1)
                 if np.min(dist) < (close_thres * np.min(x_max-x_min)): continue
                 shown_images = np.r_[shown_images, [x[i]]]
-                img = image.img_to_array(image.load_img(self.fpath_allcls[target_cls][i], target_size=thumbnail_size, interpolation="bicubic"))/255.
+                img = keras_image.img_to_array(keras_image.load_img(self.fpath_allcls[target_cls][i], target_size=thumbnail_size, interpolation="bicubic"))/255.
                 imagebox = offsetbox.AnnotationBbox(offsetbox.OffsetImage(img, cmap=plt.cm.gray_r),x[i],bboxprops=dict(edgecolor=self.cmap(list(X.keys()).index(target_cls))))
                 ax.add_artist(imagebox)
         plt.xticks([]), plt.yticks([])

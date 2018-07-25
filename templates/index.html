@@ -10,7 +10,7 @@
     <script>
         $(function() {
             // ファイルのアップロード処理
-            var uploadFiles = function(files) {
+            var uploadFiles = function(files,category_idx) {
                 // FormDataオブジェクトを用意
                 var fd = new FormData();
 
@@ -29,7 +29,7 @@
 
                 // Ajaxでアップロード処理をするファイルへ内容渡す
                 $.ajax({
-                    url: '/upload',
+                    url: '/upload/'+category_idx,
                     type: 'POST',
                     data: fd,
                     processData: false,
@@ -59,7 +59,7 @@
 
                 // ファイル情報を取得
                 var files = e.originalEvent.dataTransfer.files;
-                uploadFiles(files);
+                uploadFiles(files,1);
 
 
             // デフォルトの挙動を停止　これがないと、ブラウザーによりファイルが開かれる
@@ -75,9 +75,39 @@
                 var input = $(document.createElement("input"));
                 input.attr("type", "file");
                 files = input.trigger("click"); // opening dialog
-                uploadFiles(files)
+                uploadFiles(files,1)
                 return false; // avoiding navigation
             });
+
+
+            // 行を追加ボタン
+            $('#addRow').on('click', function() {
+                $('#dataTable tbody').append('<tr>'+
+                '<td width=20%>'+
+                    '<form class="well form-inline">'+
+                        '<input id="input1" type="text" class="input" placeholder="Category1">'+
+                    '</form>'+
+                '</td>'+
+                '<td width=20%>'+
+                    '<form class="well form-inline">'+
+                        '<input type="radio" name="train_or_test" value="train" checked="checked">学習用'+
+                        '<input type="radio" name="train_or_test" value="test">評価用'+
+                    '</form>'+
+                '</td>'+
+                '<td width=50%>'+
+                    '<div class="drag-area">'+
+                        '<div class="w3-light-grey" style="width:80%">'+
+                            '<div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>'+
+                        '</div>'+
+                    '</div>'+
+                '</td>'+
+                '<td width=10%>'+
+                    '<button type="button" name="delete" >削除</button>'+
+                '</td>'+
+            '</tr>'
+            );
+            });
+        $('#addRow').trigger("click");
         });
     </script>
 
@@ -87,26 +117,22 @@
     <!-- ヘッダ -->
 
     <!-- データ送信を行う -->
-    <div class="drag-area">
-        <div class="w3-light-grey" style="width:80%">
-            <div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>
-        </div>
-    </div>
 
-    <div class="container">
-        <div class="span12">
-            <div id="sdcontainer">
-                <form class="well form-inline">
+    <table id="dataTable" width=90%>
+        <thead>
+            <tr>
+                <th>カテゴリ名</th>
+                <th>データ種別</th>
+                <th>アップロード進捗</th>
+                <th>削除</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
 
-                    <input id="input1" type="text" class="input" placeholder="This text will get returned">
-                    <input id="input2" type="text" class="input" placeholder="This text won't">
+    <button type="button" id="addRow">1行追加</button>
 
-                    <button id="runajax" class="btn btn-primary">Run</button>
-                </form>
-                <span id="responsefield"></span>
-            </div>
-        </div>
-    </div>
 
     <!-- 分離度のチェックを行う -->
 
