@@ -71,6 +71,10 @@ class DataReciever(tornado.web.RequestHandler):
         return
 
     def post(self,category):
+        if not 'file' in self.request.files:
+            print("error: could not find 'file' in self.request.files")
+            print(self.request.files)
+            return
         fileinfo = self.request.files['file'][0]
         fileName = fileinfo['filename']
         print(category,fileinfo["filename"])
@@ -86,8 +90,18 @@ class DataReciever(tornado.web.RequestHandler):
         return
 
 # TODO: データの名前・データ種別を設定する
+class CategoryReciever(tornado.web.RequestHandler):
+    def get(self):
+        print("aaa")
+        example_response = {}
+        self.write(json.dumps(example_response))
+        return
 
-# TODO: データの名前・データ種別を設定する
+    def post(self,category):
+        dic = tornado.escape.json_decode(self.request.body)
+        print(dic)
+        # TODO: ここで、データベース更新を行う
+        return
 
 # TODO: データの分離レベルを取得する
 
@@ -95,7 +109,8 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
                 (r"/", MainHandler),
-                (r"/upload/(?P<category>\d+)", DataReciever)
+                (r"/change/(?P<category>\d+)", CategoryReciever),
+                (r"/upload/(?P<category>\d+)", DataReciever),
             ]
         # settingsでdebugをTrueに設定。設定はこれだけ。
         settings = dict(

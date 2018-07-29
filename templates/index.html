@@ -9,6 +9,47 @@
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script>
         $(function() {
+
+            var category_index_total = 0;
+
+            // 行を追加ボタン
+            $('#addRow').on('click', function() {
+                $('#dataTable tbody').append(
+                    '<tr>'+
+                        '<td width=20%>'+
+                            '<form class="well form-inline">'+
+                                '<input type="text" name="category_name" class="input" category_index="'+category_index_total+'" placeholder="Category'+category_index_total+'">'+
+                            '</form>'+
+                        '</td>'+
+                        '<td width=20%>'+
+                            '<form class="well form-inline" category_index="'+category_index_total+'">'+
+                                '<input type="radio" name="train_or_test" value="train" checked="checked">学習用'+
+                                '<input type="radio" name="train_or_test" value="test">評価用'+
+                            '</form>'+
+                        '</td>'+
+                        '<td width=50%>'+
+                            '<div class="drag-area" category_index="'+category_index_total+'">'+
+                                '<div class="w3-light-grey" style="width:80%">'+
+                                    '<div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>'+
+                                '</div>'+
+                            '</div>'+
+                        '</td>'+
+                        '<td width=10%>'+
+                            '<button class="del-line" type="button" name="delete" category_index="'+category_index_total+'" >削除</button>'+
+                        '</td>'+
+                    '</tr>'
+                );
+                category_index_total += 1;
+            });
+
+            // 最初に一行だけ追加しておく
+            $('#addRow').trigger("click");
+
+            // 削除ボタンの実装
+            $('tbody').on("click",'.del-line',function(){
+                $(this).closest("tr").remove();
+            });
+
             // ファイルのアップロード処理
             var uploadFiles = function(files,category_idx) {
                 // FormDataオブジェクトを用意
@@ -38,7 +79,7 @@
                         var XHR = $.ajaxSettings.xhr();
                         XHR.upload.addEventListener('progress',function(e){
                             var progre = parseInt(e.loaded/e.total * 100);
-                            $('.w3-container').attr("style","width:"+progre+"%").text(progre+"%");
+                            $('.drag-area[category_index="'+category_idx+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(progre+"%");
                         });
                         return XHR;
                     }
@@ -53,61 +94,62 @@
             };
 
             // ファイルドロップ時の処理
-            $('.drag-area').on('drop', function(e){
+            $('tbody').on('drop','.drag-area',function(e){
                 // デフォルトの挙動を停止
                 e.preventDefault();
 
                 // ファイル情報を取得
                 var files = e.originalEvent.dataTransfer.files;
-                uploadFiles(files,1);
-
+                uploadFiles(files,$(this).attr("category_index"));
 
             // デフォルトの挙動を停止　これがないと、ブラウザーによりファイルが開かれる
-            }).on('dragenter', function(){
+            }).on('dragenter','.drag-area', function(){
                 return false;
-            }).on('dragover', function(){
+            }).on('dragover','.drag-area', function(){
                 return false;
             });
 
-
             // ボタンを押した時の処理
-            $('.drag-area').on('click', function() {
+            $('tbody').on('click', '.drag-area', function() {
                 var input = $(document.createElement("input"));
                 input.attr("type", "file");
                 files = input.trigger("click"); // opening dialog
-                uploadFiles(files,1)
+                uploadFiles(files,$(this).attr("category_index"));
                 return false; // avoiding navigation
             });
 
+            // カテゴリ名が変更されたときの処理
+            var change_category = function(category_idx) {
+                var tr_item = $('tbody').find('input[category_index="'+category_idx+'"]').closest('tr');
+                var data = {
+                    index: category_idx,
+                    category_name: $(tr_item).find('input[name="category_name"]').val(),
+                    category_type: $(tr_item).find('input[name="train_or_test"]:checked').val()
+                };
+                console.log(JSON.stringify(data));
 
-            // 行を追加ボタン
-            $('#addRow').on('click', function() {
-                $('#dataTable tbody').append('<tr>'+
-                '<td width=20%>'+
-                    '<form class="well form-inline">'+
-                        '<input id="input1" type="text" class="input" placeholder="Category1">'+
-                    '</form>'+
-                '</td>'+
-                '<td width=20%>'+
-                    '<form class="well form-inline">'+
-                        '<input type="radio" name="train_or_test" value="train" checked="checked">学習用'+
-                        '<input type="radio" name="train_or_test" value="test">評価用'+
-                    '</form>'+
-                '</td>'+
-                '<td width=50%>'+
-                    '<div class="drag-area">'+
-                        '<div class="w3-light-grey" style="width:80%">'+
-                            '<div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>'+
-                        '</div>'+
-                    '</div>'+
-                '</td>'+
-                '<td width=10%>'+
-                    '<button type="button" name="delete" >削除</button>'+
-                '</td>'+
-            '</tr>'
-            );
-            });
-        $('#addRow').trigger("click");
+                $.ajax({
+                    url: '/change/'+category_idx,
+                    type: 'POST',
+                    data: JSON.stringify(data),
+                    processData: false,
+                    contentType: false
+                });
+                return false; // avoiding navigation
+            };
+            $('tbody').on('change', 'input[name="train_or_test"]', function(){
+                var category_idx = $(this).closest('tr').find('input').attr("category_index");
+                change_category(category_idx);
+                return false;});
+
+            $('tbody').on('keypress', 'input[name="category_name"]', function(e){
+                if (e.which === 13) {
+                    var category_idx = $(this).closest('tr').find('input').attr("category_index");
+                    change_category(category_idx);
+                    return false;
+                    }
+                });
+
         });
     </script>
 
