@@ -10,6 +10,7 @@ from keras.models import Model
 import matplotlib.pyplot as plt
 from matplotlib import offsetbox
 from sklearn import manifold, datasets, decomposition, ensemble, discriminant_analysis, random_projection, mixture
+import tensorflow as tf
 
 from PIL import Image
 
@@ -19,6 +20,7 @@ class rapidDiag(object):
     def __init__(self,platform="cui"):
         self.cmap = plt.get_cmap("tab10")
         self.comp = None
+        self.image_size = (224,224,3)
         if platform=="cui":
             self.tqdm = tqdm.tqdm
         elif platform=="notebook":
@@ -34,7 +36,7 @@ class rapidDiag(object):
             self.base_model = base_model = keras.applications.vgg16.VGG16(weights='imagenet', include_top=False)
         elif model_type=="mobilenet":
             self.preprocess_input = keras.applications.mobilenet.preprocess_input
-            self.base_model = base_model = keras.applications.mobilenet.MobileNet(weights='imagenet', include_top=False)
+            self.base_model = base_model = keras.applications.mobilenet.MobileNet(input_shape=self.image_size,weights='imagenet', include_top=False)
         else:
             assert False, "incorrect model_type"
 
@@ -46,19 +48,22 @@ class rapidDiag(object):
         h = GlobalAveragePooling2D()(h)
         model = Model(inputs=base_model.input, outputs=h)
         self.model = model
+        self.graph = tf.get_default_graph()
 
         return
 
-    def process_one(self,img,batch_size=64,image_size=(224,224)):
+    def process_one(self,img,batch_size=64):
         """
         img: PIL Image形式の画像
         """
-        img = img.resize(image_size,Image.BICUBIC)
+        # TODO: カラー以外の形式への対応
+        img = img.resize(self.image_size[:2],Image.BICUBIC)
         img = np.asarray(img).astype(np.float32)
         img.flags.writeable = True
         x_vec = np.array([img])
         x = self.preprocess_input(x_vec)
-        features = self.model.predict_on_batch(x)
+        with self.graph.as_default():
+            features = self.model.predict_on_batch(x)
         return features
 
     def process(self,batch_size=64,image_size=(224,224)):
