@@ -4,9 +4,14 @@ body {
   margin: 0 auto;
 }
 p {
-  color:#BEAF71;
-  font-size:200%;
+  color:#424242;
 }
+
+.project_selection {
+  width:30%;
+  float:left;
+}
+
 
 .w3-container:after, .w3-container:before {
     content:"";

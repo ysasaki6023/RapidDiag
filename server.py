@@ -50,7 +50,7 @@ rds.set_model(model_type="mobilenet",model_layer="last")
 @app.route('/')
 def index():
     # TODO: ログイン対応
-    return render_template('index.html', user_name="test user")
+    return render_template('index.html', user_name="test user", css_url = url_for('static', filename='style.css'))
 
 def generate_CategoryDB_name(user_name,project_name):
     CategoryDB_name  = user_name.replace(" ","_").replace("/","_").replace(".","_")
@@ -78,9 +78,9 @@ def show_project():
 @app.route('/new_project',methods=["POST"])
 def new_project():
     try:
-        project_name = request.args.get('project_name', type=str)
+        project_name = request.json["project_name"]
     except:
-        return jsonify({"status":"existed"})
+        return jsonify({"status":"failed"})
     
     user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
@@ -93,8 +93,17 @@ def new_project():
     if not len(cur.fetchall())==0:
         return jsonify({"status":"existed"})
 
+    # ProjectDBに記録
     cur.execute("INSERT into ProjectDB values (?,?,?)",
                 (user_name,project_name,CategoryDB_name))
+    con.commit()
+
+    # CategoryDB__XXを作成
+    cur.execute("create table IF NOT EXISTS CategoryDB__{} (category_id integer primary key, category_name text, category_type text)".format(CategoryDB_name))
+    con.commit()
+
+    # DataDB__XXを作成
+    cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, filename text, feature arr)".format(CategoryDB_name))
     con.commit()
 
     return jsonify({"status":"success"})
@@ -102,7 +111,7 @@ def new_project():
 @app.route('/del_project',methods=["POST"])
 def del_project():
     try:
-        project_name = request.args.get('project_name', type=str)
+        project_name = request.json["project_name"]
     except:
         return jsonify({"status":"existed"})
     
@@ -111,15 +120,32 @@ def del_project():
 
     con = sqlite3.connect(DBFilePath)
     cur = con.cursor()
-    # 存在確認
+
+    ################
+    # ProjectDBから削除
     cur.execute("SELECT * from ProjectDB where CategoryDB_name=?",
                 (CategoryDB_name,))
-    if len(cur.fetchall())==0:
-        return jsonify({"status":"not existed"})
+    if len(cur.fetchall())>0:
+        cur.execute("DELETE from ProjectDB where CategoryDB_name=?",
+                    (CategoryDB_name,))
+        con.commit()
 
-    cur.execute("DELETE from ProjectDB where CategoryDB_name=?",
-                (CategoryDB_name,))
-    con.commit()
+    ################
+    # CategoryDB__XX, DataDB__XXを削除
+    try:
+        cur.execute("DROP TABLE CategoryDB_name=?",
+                    (CategoryDB_name,))
+        con.commit()
+    except:
+        pass
+    ##
+    try:
+        cur.execute("DROP TABLE DataDB_name=?",
+                    (CategoryDB_name,))
+        con.commit()
+    except:
+        pass
+
     return jsonify({"status":"success"})
 
 #################################################################################
@@ -138,11 +164,27 @@ def upload(project_name,category_id):
     CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
     con = sqlite3.connect(DBFilePath, detect_types=sqlite3.PARSE_DECLTYPES)
     cur = con.cursor()
-    cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, filename text, feature arr)".format(CategoryDB_name))
-    con.commit()
 
     cur.execute("INSERT into DataDB__{} values (?,?,?)".format(CategoryDB_name), 
                 (category_id,img_filename, feature))
+    con.commit()
+
+    return jsonify({"status":"success"})
+
+@app.route('/add_category',methods=["POST"])
+def add_category():
+    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
+    try:
+        project_name = request.json["project_name"]
+    except:
+        return jsonify({"status":"fail"})
+
+    # DBを更新
+    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
+    con = sqlite3.connect(DBFilePath)
+    cur = con.cursor()
+    cur.execute("INSERT OR REPLACE into CategoryDB__{} values (?,?,?)".format(CategoryDB_name), 
+                (category_id, category_name, category_type))
     con.commit()
 
     return jsonify({"status":"success"})
@@ -163,9 +205,8 @@ def change_category():
     CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
     con = sqlite3.connect(DBFilePath)
     cur = con.cursor()
-    cur.execute("create table IF NOT EXISTS CategoryDB__{} (category_id integer primary key, category_name text, category_type text)".format(CategoryDB_name))
-    con.commit()
 
+    # TODO:Updateのみに修正
     cur.execute("INSERT OR REPLACE into CategoryDB__{} values (?,?,?)".format(CategoryDB_name), 
                 (category_id, category_name, category_type))
     con.commit()
@@ -189,8 +230,15 @@ def get_category():
         cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
         res = {"count":0,"items":[]}
         for line in cur:
+            items_uploaded = 0
+            try:
+                cur.execute("SELECT COUNT (*) FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
+                            (category_id,))
+                items_uploaded = len(cur.fetchall())
+            except:
+                pass
             res["count"] += 1
-            res["items"].append({"category_id":line[0],"category_name":line[1],"category_type":line[2]})
+            res["items"].append({"category_id":line[0],"category_name":line[1],"category_type":line[2],"items_uploaded":items_uploaded})
         return jsonify(res)
     except:
         res = {"count":0,"items":[]}

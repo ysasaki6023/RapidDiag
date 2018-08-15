@@ -4,27 +4,78 @@
 
       <title>{{ user_name }}</title>
 
-    <link rel="stylesheet" href="static/style.css"/>
+    <link rel="stylesheet" href={{css_url}}/>
 
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script>
-        var getBase64 = function(file) {
-            if (!file) return;
-            var reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = function () {
-                console.log(reader.result);
-            };
-            reader.onerror = function (error) {
-                console.log('Error: ', error);
-            };
-        }
-        $(function() {
+        /////////////////////////////////////////////////////////////////////
+        // プロジェクト系の設定
+
+        $(window).load(function () {
+
+            // 全体の更新
+            var update_view = function(){
+                $("#project_name_new").val("");
+                $.post("/show_project",function(data){
+                    $("#project_select_list").html("");
+                    for(var i=data.project_name.length-1;i>=0;i--){
+                        $("#project_select_list").append("<option value="+data.project_name[i]+">"+data.project_name[i]+"</option>");
+                    }
+                });
+                // TODO: カテゴリの更新
+            }
+
+            // 初回の画面更新
+            update_view();
+
+            // プロジェクトの追加
+            $("#project_add").on("click",function()
+                {
+                    var project_name = $("#project_name_new").val();
+                    if(project_name=="")
+                    {
+                        alert("プロジェクト名未入力");
+                    }
+                    else
+                    {
+                        $.ajax({
+                            url:"/new_project",
+                            type:"POST",
+                            contentType: "application/json; charset=utf-8",
+                            data:JSON.stringify({"project_name":project_name})
+                        }).then(function(){
+                            update_view();
+
+                        });
+                    }
+                });
+
+            // プロジェクトの削除
+            $("#project_del").on("click",function()
+                {
+                    var project_name = $("#project_select_list").val();
+                    {
+                        $.ajax({
+                            url:"/del_project",
+                            type:"POST",
+                            contentType: "application/json; charset=utf-8",
+                            data:JSON.stringify({"project_name":project_name})
+                        }).then(function(){
+                            update_view();
+                        });
+                    }
+                });
+            });
+
+        /////////////////////////////////////////////////////////////////////
+        // データの読み込み・カテゴリ修正に関する設定
+        $(function () {
 
             var category_index_total = 0;
 
             // 行を追加ボタン
             $('#addRow').on('click', function() {
+                // カテゴリ番号を取得する。これは、今出ているものの最大のものを使う
                 $('#dataTable tbody').append(
                     '<tr>'+
                         '<td width=20%>'+
@@ -35,6 +86,7 @@
                         '<td width=20%>'+
                             '<form class="well form-inline" category_index="'+category_index_total+'">'+
                                 '<input type="radio" name="train_or_test" value="train" checked="checked">学習用'+
+                    '<br>'+
                                 '<input type="radio" name="train_or_test" value="test">評価用'+
                             '</form>'+
                         '</td>'+
@@ -58,7 +110,10 @@
 
             // 削除ボタンの実装
             $('tbody').on("click",'.del-line',function(){
+                // 画面から削除する
                 $(this).closest("tr").remove();
+
+                // TODO: サーバーからも削除する
             });
 
 
@@ -90,18 +145,11 @@
                     type: 'POST',
                     data: fd,
                     processData: false,
-                    contentType: false,
-                    xhr : function(){
-                        var XHR = $.ajaxSettings.xhr();
-                        XHR.upload.addEventListener('progress',function(e){
-                            var progre = parseInt(e.loaded/e.total * 100);
-                            $('.drag-area[category_index="'+category_idx+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(progre+"%");
-                        });
-                        return XHR;
-                    }
+                    contentType: false
 
-
-                }).done(function(data) {
+                }).success(function(data) {
+                  var progre = 100;//parseInt(e.loaded/e.total * 100);
+                  $('.drag-area[category_index="'+category_idx+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(progre+"%");
                     console.log(data);
 
                 }).fail(function(data) {
@@ -164,16 +212,49 @@
                     return false;
                     }
                 });
-
         });
+
+
+
     </script>
 
   </head>
 
   <body>
     <!-- ヘッダ -->
+    <h1> Rapid Data Diagnosis</h1>
+
+    <!-- プロジェクトの選定を行う -->
+    <h2> Step1: プロジェクト名の設定/選定</h2>
+
+    <div class="project_selection">
+        プロジェクトを選択
+        <select id="project_select_list">
+        </select>
+    </div>
+    <div class="project_add_and_del">
+        新規プロジェクトを追加
+        <input id="project_name_new">
+        </input>
+        <button id="project_add">
+            追加
+        </button>
+        <br>
+        選択プロジェクトを削除
+        <button id="project_del" class="button_red">
+            削除
+        </button>
+    </div>
 
     <!-- データ送信を行う -->
+    <h2> Step2: データのアップロード </h2>
+    <p>
+    "アップロード進捗"バーの上に複数ファイルをドラッグアンドドロップ、もしくはクリックすることでファイルをアップロード
+    </p>
+
+    <p>
+    その後、分析結果がわかりやすいような"カテゴリ名"を指定します。それぞれのカテゴリが、学習データに属しているか、評価用のデータかも指定します。
+    </p>
 
     <table id="dataTable" width=90%>
         <thead>
