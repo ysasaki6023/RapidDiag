@@ -6,7 +6,6 @@ from io import BytesIO
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
-import base64
 
 app = Flask(__name__)
 app.debug = True
@@ -32,7 +31,7 @@ def convert_array(text):
 # Converts np.array to TEXT when inserting
 sqlite3.register_adapter(np.ndarray, adapt_array)
 
-# Converts TEXT to np.array when selecting
+# Converts TEXT to np.array when selecting -> どうも自動で動いてくれていない・・・
 sqlite3.register_converter("array", convert_array)
 ## TODO:UserDB
 
@@ -103,7 +102,7 @@ def new_project():
     con.commit()
 
     # DataDB__XXを作成
-    cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, filename text, feature arr)".format(CategoryDB_name))
+    cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, filename text, feature array)".format(CategoryDB_name))
     con.commit()
 
     return jsonify({"status":"success"})
@@ -176,6 +175,7 @@ def add_category():
     user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     try:
         project_name = request.json["project_name"]
+        print(request.json)
     except:
         return jsonify({"status":"fail"})
 
@@ -183,20 +183,28 @@ def add_category():
     CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
     con = sqlite3.connect(DBFilePath)
     cur = con.cursor()
-    cur.execute("INSERT OR REPLACE into CategoryDB__{} values (?,?,?)".format(CategoryDB_name), 
-                (category_id, category_name, category_type))
+    cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
+    max_idx = -1
+    for line in cur:
+        category_id = line[0]
+        max_idx = max(max_idx,category_id)
+    next_idx = max_idx+1
+
+    # レコードを作成
+    cur.execute("INSERT into CategoryDB__{} values (?,?,?)".format(CategoryDB_name), 
+                (next_idx, "temp_name", "train"))
     con.commit()
 
-    return jsonify({"status":"success"})
+    return jsonify({"status":"success","category_id":next_idx})
 
 @app.route('/change_category',methods=["POST"])
 def change_category():
     user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     try:
-        project_name  = request.args.get('project_name', type=str)
-        category_id   = request.args.get('category_id', type=int)
-        category_name = request.args.get('category_name', type=str)
-        category_type = request.args.get('category_type', type=str)
+        project_name  = request.json['project_name']
+        category_id   = request.json['category_id']
+        category_name = request.json['category_name']
+        category_type = request.json['category_type']
     except:
         return jsonify({"status":"fail"})
     if not category_type in ["train","test"]: return jsonify({"status":"incorrect type:".format(category_type)})
@@ -217,7 +225,8 @@ def change_category():
 def get_category():
     user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     try:
-        project_name  = request.args.get('project_name', type=str)
+        project_name  = request.json['project_name']
+        print(request.json)
     except:
         return jsonify({"status":"fail"})
 
@@ -226,30 +235,26 @@ def get_category():
     con = sqlite3.connect(DBFilePath)
     cur = con.cursor()
 
-    try:
-        cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
-        res = {"count":0,"items":[]}
-        for line in cur:
-            items_uploaded = 0
-            try:
-                cur.execute("SELECT COUNT (*) FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
-                            (category_id,))
-                items_uploaded = len(cur.fetchall())
-            except:
-                pass
-            res["count"] += 1
-            res["items"].append({"category_id":line[0],"category_name":line[1],"category_type":line[2],"items_uploaded":items_uploaded})
-        return jsonify(res)
-    except:
-        res = {"count":0,"items":[]}
-        return jsonify(res)
+    cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
+    res = {"count":0,"items":[]}
+    for line in cur.fetchall():
+        category_id = line[0]
+        cur.execute("SELECT COUNT (*) FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
+                    (category_id,))
+        items_uploaded = cur.fetchall()[0][0]
+        res["count"] += 1
+        res["items"].append({"category_id":line[0],"category_name":line[1],"category_type":line[2],"items_uploaded":items_uploaded})
+    return jsonify(res)
+    #except:
+    #    res = {"count":0,"items":[]}
+    #    return jsonify(res)
 
 @app.route('/delete_category',methods=["POST"])
 def delete_category():
     user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     try:
-        project_name  = request.args.get('project_name', type=str)
-        category_id   = request.args.get('category_id', type=int)
+        project_name  = request.json['project_name']
+        category_id   = request.json['category_id']
     except:
         return jsonify({"status":"fail"})
 
@@ -277,6 +282,53 @@ def delete_category():
         pass
 
     return jsonify({"status":"success"})
+
+#################################################################################
+@app.route('/evaluate',methods=["POST"])
+def evaluate():
+    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
+    try:
+        project_name  = request.json['project_name']
+    except:
+        return jsonify({"status":"fail"})
+
+    # trainのカテゴリを抽出する
+    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
+    con = sqlite3.connect(DBFilePath)
+    cur = con.cursor()
+
+    cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
+    allItems = cur.fetchall()
+    category_name = {x[0]:x[1] for x in allItems}
+    category_id_train = [x[0] for x in allItems if x[2]=="train"]
+
+    result = {"train_pairs":[],
+              "train_matrix":{
+                  "size": len(category_id_train),
+                  "col": [category_name[x] for x in category_id_train]
+             }}
+    for c1 in category_id_train:
+        # DBから情報を抽出する
+        cur.execute("SELECT * from DataDB__{} WHERE category_id=?".format(CategoryDB_name),
+                (c1,))
+        arr1 = np.array([convert_array(x[2])[0] for x in cur.fetchall()])
+        for c2 in category_id_train:
+            if c1>=c2: continue
+            cur.execute("SELECT * from DataDB__{} WHERE category_id=?".format(CategoryDB_name),
+                    (c2,))
+            arr2 = np.array([convert_array(x[2])[0] for x in cur.fetchall()])
+            # DBから情報を抽出する
+            print(arr1.shape,arr2.shape)
+            item = {}
+            item["category_id_1"] = c1
+            item["category_id_2"] = c2
+            item["category_name_1"] = category_name[c1]
+            item["category_name_2"] = category_name[c2]
+            item["separation_probability"] = rds.calc_separation_one(arr1,arr2)[0]
+            result["train_pairs"].append(item)
+    result["status"] = "success"
+
+    return jsonify(result)
 
 #################################################################################
 if __name__ == '__main__':

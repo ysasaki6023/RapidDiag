@@ -163,6 +163,21 @@ class rapidDiag(object):
 
         return fig
 
+    def calc_separation_one(self,arr1,arr2):
+        #x = self.X[self.Y==self.cls_list.index(cls1)]
+        #y = self.X[self.Y==self.cls_list.index(cls2)]
+        x,y = arr1,arr2
+        d0 = np.mean(x,axis=0)
+        d1 = np.mean(y,axis=0)
+        v = d1-d0
+        tx = (x-d0).dot(v)/np.power(np.linalg.norm(v),2)
+        ty = (y-d0).dot(v)/np.power(np.linalg.norm(v),2)
+        d = np.abs(tx.mean() - ty.mean())
+        s = np.sqrt(tx.std()**2+ty.std()**2)
+        sep = d/s
+
+        return sep,tx,ty
+
     def calc_separation(self,cls1,cls2):
         x = self.X[self.Y==self.cls_list.index(cls1)]
         y = self.X[self.Y==self.cls_list.index(cls2)]

@@ -7,6 +7,56 @@ p {
   color:#424242;
 }
 
+h1{
+    background: #dfefff;
+    box-shadow: 0px 0px 0px 5px #dfefff;
+    border: dashed 1px #96c2fe;
+    padding: 0.2em 0.5em;
+    color: #454545;
+}
+
+h2 {
+    padding: 0.5em;/*文字周りの余白*/
+    color: #010101;/*文字色*/
+    background: #eaf3ff;/*背景色*/
+    border-bottom: solid 3px #516ab6;/*下線*/
+}
+
+#separationTable {
+   table-layout: fixed;
+   width: 100%;
+   text-align: center;
+   vertical-align: middle;
+}
+#separationTable th {
+   background: #eaf3ff;/*背景色*/
+   color: #010101;/*文字色*/
+   width: 50px;
+   height: 50px;
+}
+#separationTable td {
+   background: #e6e6e6;
+   color: #000000;/*文字色*/
+   width: 50px;
+   height: 50px;
+}
+
+.square_btn{
+    display: inline-block;
+    padding: 0.5em 1em;
+    text-decoration: none;
+    background: #f7f7f7;
+    background: #eaf3ff;/*背景色*/
+    border-left: solid 6px #516ab6;/*左線*/
+    color: #010101;/*文字色*/
+    font-weight: bold;
+    box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.29);
+}
+.square_btn:active {
+    box-shadow: inset 0 0 2px rgba(128, 128, 128, 0.1);
+    transform: translateY(2px);
+}
+
 .project_selection {
   width:30%;
   float:left;

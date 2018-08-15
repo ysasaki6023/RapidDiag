@@ -13,22 +13,107 @@
 
         $(window).load(function () {
 
+            // 行を追加する関数
+            var add_new_category_line = function(category_id,category_name,category_type,items_uploaded){
+                // 問い合わせたcategory_idに対応する行を作成する
+                htmlStr = '<tr>'+
+                        '<td width=20%>'+
+                        '<input type="text" name="category_name" class="input" category_index="'+category_id+'" value="'+category_name+'">'+
+                        '</td>'+
+                        '<td width=20%>'
+                if(category_type=="train")
+                {
+                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train" checked>学習用'+
+                        '<br>'+
+                        '<input type="radio" name="train_or_test_'+category_id+'" value="test">評価用'+
+                        '</td>'
+                }
+                else
+                {
+                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train">学習用'+
+                        '<br>'+
+                        '<input type="radio" name="train_or_test_'+category_id+'" value="test" checked>評価用'+
+                        '</td>'
+                }
+                htmlStr += '<td width=50%>'+
+                            '<div class="drag-area" category_index="'+category_id+'">'+
+                                '<div class="w3-light-grey" style="width:80%">'
+                if(items_uploaded==0)
+                {
+                    htmlStr +=          '<div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>';
+                }
+                else
+                {
+                    htmlStr +=          '<div class="w3-container w3-blue w3-center" style="width:100%">'+items_uploaded+'/'+items_uploaded+' (100%)</div>';
+                }
+                htmlStr +=     '</div>'+
+                            '</div>'+
+                        '</td>'+
+                        '<td width=10%>'+
+                            '<button class="del-line" type="button" name="delete" category_index="'+category_id+'" >削除</button>'+
+                        '</td>'+
+                    '</tr>'
+                $('#dataTable tbody').append(htmlStr);
+
+            };
+
+
             // 全体の更新
-            var update_view = function(){
+            var update_view_project = function(){
+                var defer = $.Deferred();
                 $("#project_name_new").val("");
-                $.post("/show_project",function(data){
+                $.ajax({
+                    url:"/show_project",
+                    type:"POST",
+                    contentType: "application/json; charset=utf-8"
+                }).then(function(data){
+                    // project_select_listの更新
                     $("#project_select_list").html("");
                     for(var i=data.project_name.length-1;i>=0;i--){
-                        $("#project_select_list").append("<option value="+data.project_name[i]+">"+data.project_name[i]+"</option>");
+                        var newItem = "<option value="+data.project_name[i];
+                        if(i==(data.project_name.length-1))
+                            newItem += " selected"
+                        newItem += ">"+data.project_name[i]+"</option>";
+                        $("#project_select_list").append(newItem);
                     }
+                    defer.resolve();
                 });
+                return defer.promise();
+            }
+
+            var update_view_category = function(){
+                var defer = $.Deferred();
+                project_name = $("#project_select_list").val();
+                console.log(project_name);
+                if(project_name==null)
+                {return false;}
+
                 // TODO: カテゴリの更新
+                $.ajax({
+                    url:"/get_category",
+                    type:"POST",
+                    contentType: "application/json; charset=utf-8",
+                    data:JSON.stringify({"project_name":project_name})
+                }).then(function(data){
+                    console.log(data);
+                    $('#dataTable tr').remove();
+                    for(var i=0; i<data.items.length; i++)
+                    {
+                        add_new_category_line(data.items[i].category_id,data.items[i].category_name,data.items[i].category_type,data.items[i].items_uploaded);
+                    }
+                    defer.resolve();
+                });
+                return defer.promise();
             }
 
             // 初回の画面更新
-            update_view();
+            update_view_project();
 
             // プロジェクトの追加
+            $("#project_select_list").on("change",function(){
+                update_view_category();
+            });
+
             $("#project_add").on("click",function()
                 {
                     var project_name = $("#project_name_new").val();
@@ -44,8 +129,9 @@
                             contentType: "application/json; charset=utf-8",
                             data:JSON.stringify({"project_name":project_name})
                         }).then(function(){
-                            update_view();
-
+                            update_view_project().then(function(){
+                                update_view_category();
+                            });
                         });
                     }
                 });
@@ -61,66 +147,61 @@
                             contentType: "application/json; charset=utf-8",
                             data:JSON.stringify({"project_name":project_name})
                         }).then(function(){
-                            update_view();
+                            update_view_project().then(update_view_category());
                         });
                     }
                 });
-            });
 
         /////////////////////////////////////////////////////////////////////
         // データの読み込み・カテゴリ修正に関する設定
-        $(function () {
-
-            var category_index_total = 0;
-
             // 行を追加ボタン
-            $('#addRow').on('click', function() {
-                // カテゴリ番号を取得する。これは、今出ているものの最大のものを使う
-                $('#dataTable tbody').append(
-                    '<tr>'+
-                        '<td width=20%>'+
-                            '<form class="well form-inline">'+
-                                '<input type="text" name="category_name" class="input" category_index="'+category_index_total+'" placeholder="Category'+category_index_total+'">'+
-                            '</form>'+
-                        '</td>'+
-                        '<td width=20%>'+
-                            '<form class="well form-inline" category_index="'+category_index_total+'">'+
-                                '<input type="radio" name="train_or_test" value="train" checked="checked">学習用'+
-                    '<br>'+
-                                '<input type="radio" name="train_or_test" value="test">評価用'+
-                            '</form>'+
-                        '</td>'+
-                        '<td width=50%>'+
-                            '<div class="drag-area" category_index="'+category_index_total+'">'+
-                                '<div class="w3-light-grey" style="width:80%">'+
-                                    '<div class="w3-container w3-blue-before w3-center" style="width:100%">Drop files here</div>'+
-                                '</div>'+
-                            '</div>'+
-                        '</td>'+
-                        '<td width=10%>'+
-                            '<button class="del-line" type="button" name="delete" category_index="'+category_index_total+'" >削除</button>'+
-                        '</td>'+
-                    '</tr>'
-                );
-                category_index_total += 1;
-            });
+            var add_category = function() {
+                // 初期値を取得
+                project_name = $("#project_select_list").val();
+                if(project_name==null){ return false; }
 
-            // 最初に一行だけ追加しておく
-            $('#addRow').trigger("click");
+                // カテゴリ番号を取得して、リストを追加する
+                $.ajax({
+                    url:"/add_category",
+                    type:"POST",
+                    contentType: "application/json; charset=utf-8",
+                    data:JSON.stringify({"project_name":project_name})
+                }).then(function(data){
+                    category_id = data.category_id;
+                    console.log("category_id="+category_id+" for project_name="+project_name);
+                    add_new_category_line(category_id,"category名","train",0);
+                });
+            };
+
+            // 行を追加ボタン実行時に上記が呼ばれるようにする
+            $('#addRow').on('click', function(){add_category();});
 
             // 削除ボタンの実装
             $('tbody').on("click",'.del-line',function(){
-                // 画面から削除する
-                $(this).closest("tr").remove();
+                var project_name = $("#project_select_list").val();
+                category_id = $(this).closest('tr').find('input').attr("category_index");
+                console.log("project_name="+project_name+" category_id="+category_id);
 
-                // TODO: サーバーからも削除する
+                if(project_name==null){ return false; }
+                $.ajax({
+                    url:"/delete_category",
+                    type:"POST",
+                    contentType: "application/json; charset=utf-8",
+                    data:JSON.stringify(
+                        {"project_name":project_name,
+                         "category_id":$(this).closest('tr').find('input').attr("category_index")
+                        })
+                }).then(function(data){
+                    // 画面から削除する
+                    update_view_category();
+                });
+
             });
 
-
             // ファイルのアップロード処理
-            var uploadFiles = function(files,category_idx) {
-                // FormDataオブジェクトを用意
-                var fd = new FormData();
+            var uploadFiles = function(files,category_id) {
+                var project_name = $("#project_select_list").val();
+                if(project_name==null){ return false; }
 
                 // ファイルの個数を取得
                 var filesLength = files.length;
@@ -129,32 +210,31 @@
                     $(".w3-container").addClass("w3-blue");
                 }
 
+                var send_num = 0;
+
                 // ファイル情報を追加
-                //for (var i = 0; i < filesLength; i++) {
-                //    console.log(files[i]["name"]);
-                //    fd.append("file", files[i]);
-                //}
-                fd.append("file", files[0]);
+                for (var i = 0; i < filesLength; i++) {
+                    // FormDataオブジェクトを用意
+                    var fd = new FormData();
+                    console.log(files[i]["name"]);
+                    fd.append("file", files[i]);
 
-                //fd.append("image", getBase64(files[0]));
-                //fd.append("image", "aaaa");
-
-                // Ajaxでアップロード処理をするファイルへ内容渡す
-                $.ajax({
-                    url: '/upload/'+"project1/"+category_idx,
-                    type: 'POST',
-                    data: fd,
-                    processData: false,
-                    contentType: false
-
-                }).success(function(data) {
-                  var progre = 100;//parseInt(e.loaded/e.total * 100);
-                  $('.drag-area[category_index="'+category_idx+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(progre+"%");
-                    console.log(data);
-
-                }).fail(function(data) {
-                    console.log(data.responseText);
-                });
+                    // Ajaxでアップロード処理をするファイルへ内容渡す
+                    $.ajax({
+                        url: '/upload/'+project_name+"/"+category_id,
+                        type: 'POST',
+                        data: fd,
+                        processData: false,
+                        contentType: false
+                    }).then(function(data) {
+                        send_num += 1;
+                        var progre = parseInt(send_num/filesLength * 100);
+                        $('.drag-area[category_index="'+category_id+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(send_num+"/"+filesLength+" ("+progre+"%)");
+                            console.log(data);
+                    },function(data) {
+                        console.log(data.responseText);
+                    });
+                }
             };
 
             // ファイルドロップ時の処理
@@ -183,37 +263,74 @@
             });
 
             // カテゴリ名が変更されたときの処理
-            var change_category = function(category_idx) {
-                var tr_item = $('tbody').find('input[category_index="'+category_idx+'"]').closest('tr');
+            var change_category = function(category_id) {
+                var tr_item = $('tbody').find('input[category_index="'+category_id+'"]').closest('tr');
                 var data = {
+                    project_name : $("#project_select_list").val(),
+                    category_id: category_id,
                     category_name: $(tr_item).find('input[name="category_name"]').val(),
-                    category_type: $(tr_item).find('input[name="train_or_test"]:checked').val()
+                    category_type: $(tr_item).find('input[type="radio"]:checked').val()
                 };
                 console.log(JSON.stringify(data));
 
                 $.ajax({
-                    url: '/change_category/project1/'+category_idx,
+                    url: '/change_category',
                     type: 'POST',
+                    contentType: "application/json; charset=utf-8",
                     data: JSON.stringify(data),
-                    processData: false,
-                    contentType: false
                 });
                 return false; // avoiding navigation
             };
-            $('tbody').on('change', 'input[name="train_or_test"]', function(){
-                var category_idx = $(this).closest('tr').find('input').attr("category_index");
-                change_category(category_idx);
+            $('tbody').on('change', 'input[type="radio"]', function(){
+                var category_id = $(this).closest('tr').find('input').attr("category_index");
+                change_category(category_id);
                 return false;});
 
-            $('tbody').on('keypress', 'input[name="category_name"]', function(e){
+            $('tbody').on('change', 'input[name="category_name"]', function(e){
                 if (e.which === 13) {
-                    var category_idx = $(this).closest('tr').find('input').attr("category_index");
-                    change_category(category_idx);
+                    var category_id = $(this).closest('tr').find('input').attr("category_index");
+                    change_category(category_id);
                     return false;
                     }
                 });
-        });
 
+            // evaluate_startの処理
+            $('#evaluate_start').on('click', function() {
+                console.log("start evaluation");
+                var project_name = $("#project_select_list").val();
+                if(project_name==null){ return false; }
+                $.ajax({
+                    url: '/evaluate',
+                    type: 'POST',
+                    contentType: "application/json; charset=utf-8",
+                    data: JSON.stringify({
+                        project_name:project_name
+                    }),
+                }).then(function(data) {
+                    console.log(data);
+                    $("#separationTable tbody").html("");
+                    // 1行目を作る
+                    $("#separationTable tbody").append("<tr></tr>");
+                    $("#separationTable tbody tr").append("<th></th>");
+                    for(var i = 0; i<data.train_matrix.col.length; i++)
+                    {
+                        $("#separationTable tbody tr").append("<th>"+data.train_matrix.col[i]+"</th>");
+                    }
+                    // 2行目以降を作る
+                    for(var i = 0; i<data.train_matrix.col.length; i++)
+                    {
+                        $("#separationTable tbody").append("<tr></tr>");
+                        $("#separationTable tbody tr").last().append("<th>"+data.train_matrix.col[i]+"</th>");
+                        for(var j = 0; j<data.train_matrix.col.length; j++)
+                        {
+                            var sep_val = 0.;
+                            $("#separationTable tbody tr").last().append("<td>"+sep_val+"</td>");
+                        }
+                    }
+                },function(data) {
+                });
+            });
+        });
 
 
     </script>
@@ -248,13 +365,10 @@
 
     <!-- データ送信を行う -->
     <h2> Step2: データのアップロード </h2>
-    <p>
     "アップロード進捗"バーの上に複数ファイルをドラッグアンドドロップ、もしくはクリックすることでファイルをアップロード
-    </p>
+    <br>
 
-    <p>
     その後、分析結果がわかりやすいような"カテゴリ名"を指定します。それぞれのカテゴリが、学習データに属しているか、評価用のデータかも指定します。
-    </p>
 
     <table id="dataTable" width=90%>
         <thead>
@@ -273,6 +387,28 @@
 
 
     <!-- 分離度のチェックを行う -->
+    <h2> Step3: データの評価 </h2>
+    以下のボタンを押して、データの評価を開始
+    <div>
+        <div id="evaluate_start" class="square_btn">評価を開始</div>
+    </div>
+
+    <!-- 結果の表示 -->
+    <h2> Step4: 結果の確認 </h2>
+
+    <h3> 学習データ内での分離可否 </h4>
+    学習するデータカテゴリ間で特徴的な差異が存在する場合、より学習がしやすくなります。
+    ここでは、その差異の程度を表示しています。
+
+    <table id="separationTable" width=90%>
+        <tbody>
+        </tbody>
+    </table>
+
+    学習をさせづらいデータをいくつか表示させています。上の表をクリックすると、画像をランダムに表示します
+
+    <h3> 学習データと評価データの整合性 </h4>
+    学習がうまくいったとしても、推定を行うデータと整合性が取れていないと、せっかく学習させたモデルも意味を成しません。
 
   </body>
 </html>
