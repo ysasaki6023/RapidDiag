@@ -41,6 +41,55 @@ h2 {
    height: 50px;
 }
 
+#separationTable .sep_td_1 {
+   background: #44D37E;
+   color: #000000;/*文字色*/
+}
+
+#separationTable .sep_td_2 {
+   background: #F9BF4B;
+   color: #000000;/*文字色*/
+}
+
+#separationTable .sep_td_3 {
+   background: #FF6969;
+   color: #000000;/*文字色*/
+}
+
+#separationTable .sep_td_4 {
+   background: #6EC4FF;
+   color: #000000;/*文字色*/
+}
+
+#separationTable .sep_td_5 {
+   background: #9573FF;
+   color: #000000;/*文字色*/
+}
+
+.sep_box {
+    margin: 2em 0;
+    background: #dcefff;
+}
+.sep_box .box-title {
+    font-size: 1.2em;
+    background: #5fb3f5;
+    padding: 4px;
+    text-align: center;
+    color: #FFF;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+.sep_box p {
+    padding: 15px 20px;
+    margin: 0;
+}
+.next-step {
+    color: #364e96;/*文字色*/
+    border: solid 3px #364e96;/*線色*/
+    padding: 0.5em;/*文字周りの余白*/
+    border-radius: 0.5em;/*角丸*/
+}
+
 .square_btn{
     display: inline-block;
     padding: 0.5em 1em;

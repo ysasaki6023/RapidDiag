@@ -70,7 +70,8 @@ class rapidDiag(object):
         self.fpath_allcls = fpath_allcls = {}
         self.features_allcls = features_allcls = {}
         for cls in self.tqdm(self.target_files,desc="category"):
-            fpath_all = glob.glob(self.target_files[cls],recursive=True)
+            #fpath_all = glob.glob(self.target_files[cls],recursive=True)
+            fpath_all = glob.glob(self.target_files[cls],recursive=True)[:batch_size]
             fpath_allcls[cls] = fpath_all
             features_all = []
             for idx0 in self.tqdm(range(0,len(fpath_all),batch_size),desc=cls,leave=False):
@@ -91,15 +92,15 @@ class rapidDiag(object):
 
     def set_files(self):
         self.target_files = target_files = {}
-        target_files["basket-bag"] = "img_category/bag/basket-bag/train/*.jpg"
-        target_files["boston-bag"] = "img_category/bag/boston-bag/train/*.jpg"
-        target_files["backpack"] = "img_category/bag/backpack/train/*.jpg"
-        target_files["clutch-bag"] = "img_category/bag/clutch-bag/train/*.jpg"
-        target_files["hand-bag"] = "img_category/bag/hand-bag/train/*.jpg"
-        target_files["shoulder-bag"] = "img_category/bag/shoulder-bag/train/*.jpg"
-        target_files["suitcase"] = "img_category/bag/suitcase/train/*.jpg"
-        target_files["tote-bag"] = "img_category/bag/tote-bag/train/*.jpg"
-        target_files["waist-pouch"] = "img_category/bag/waist-pouch/train/*.jpg"
+        target_files["basket-bag"] = "img_category/bag/basket-bag/*.jpg"
+        target_files["boston-bag"] = "img_category/bag/boston-bag/*.jpg"
+        target_files["backpack"] = "img_category/bag/backpack/*.jpg"
+        target_files["hand-bag"] = "img_category/bag/hand-bag/*.jpg"
+        #target_files["shoulder-bag"] = "img_category/bag/shoulder-bag/*.jpg"
+
+        #target_files["suitcase"] = "img_category/bag/suitcase/*.jpg"
+        #target_files["tote-bag"] = "img_category/bag/tote-bag/*.jpg"
+        #target_files["clutch-bag"] = "img_category/bag/clutch-bag/*.jpg"
 
         return
 
@@ -164,8 +165,6 @@ class rapidDiag(object):
         return fig
 
     def calc_separation_one(self,arr1,arr2):
-        #x = self.X[self.Y==self.cls_list.index(cls1)]
-        #y = self.X[self.Y==self.cls_list.index(cls2)]
         x,y = arr1,arr2
         d0 = np.mean(x,axis=0)
         d1 = np.mean(y,axis=0)
@@ -230,6 +229,81 @@ class rapidDiag(object):
                 os.makedirs(os.path.dirname(output))
             plt.savefig(output)
         return fig
+
+    def judge_one(self,arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8):
+        _,t1,t2 = self.calc_separation_one(arr1,arr2)
+        hrange = (min(np.min(t1),np.min(t2)),max(np.max(t1),np.max(t2)))
+        h1,xaxis = np.histogram(t1,bins=nbins,range=hrange,density=False)
+        h2,_ = np.histogram(t2,bins=nbins,range=hrange,density=False)
+        An, Au, Rn, Pn, Ru, Pu = [np.zeros((nbins,),dtype=np.float32) for _ in range(6)]
+        s1 = h1.sum() / (h1.sum()+h2.sum())
+        s2 = h2.sum() / (h1.sum()+h2.sum())
+        for i in range(nbins):
+            g1 = h1[:i].sum()
+            g2 = h2[i:].sum()
+            b1 = h1[i:].sum()
+            b2 = h2[:i].sum()
+
+            Au[i] = (g1+g2)/(g1+g2+b1+b2)
+            Ru[i] = g1/(g1+b1)
+            Pu[i] = g1/(g1+b2)
+
+            g1 *= s1
+            g2 *= s2
+            b1 *= s1
+            b2 *= s2
+
+            An[i] = (g1+g2)/(g1+g2+b1+b2)
+            Rn[i] = g1/(g1+b1)
+            Pn[i] = g1/(g1+b2)
+
+        Mu = np.argmax(Au) # 学習時の最適スレッショルド
+        Vu = xaxis[:-1][Mu] # 上記と対応する数値
+
+        mRu,mRn = Ru[Mu],Rn[Mu]
+        mPu,mPn = Pu[Mu],Pn[Mu]
+
+        NGexample1 = np.where(t1>Vu)[0]
+        NGexample1 = NGexample1[np.argsort(t1[NGexample1])][::-1] # 降順にする
+        NGexample2 = np.where(t2<Vu)[0]
+        NGexample2 = NGexample2[np.argsort(t2[NGexample2])][::+1] # 昇順にする
+
+        res = {}
+        res["max_acc_unnorm_thres"] = Mu
+        res["max_acc_unnorm_val"] = Au[Mu]
+        res["max_recall_unnorm_val"] = mRu
+        res["max_prec_unnorm_val"] = mPu
+        res["max_recall_norm_val"] = mRn
+        res["max_prec_norm_val"] = mPn
+        res["recall_norm"] = Rn
+        res["prec_norm"] = Pn
+        res["acc_norm"] = An
+        res["recall_unnorm"] = Ru
+        res["prec_unnorm"] = Pu
+        res["acc_unnorm"] = Au
+        res["xaxis"] = xaxis[:-1]
+        res["NG_recall_example_index"] = NGexample1
+        res["NG_prec_example_index"] = NGexample2
+
+        # 分類
+        isOK_unnorm = (res["max_recall_unnorm_val"]>thres_recall) and (res["max_prec_unnorm_val"]>thres_prec)
+        isOK_norm   = (res["max_recall_norm_val"]  >thres_recall) and (res["max_prec_norm_val"]  >thres_prec)
+
+        flag = -1
+        if s1==0 or s2==0: flag = -1 # 片方の分布が空
+        elif isOK_unnorm and isOK_norm: flag = 1 # 十分に分布が分離している
+        elif isOK_norm: flag = 2 # データ数が少ない
+        else: # ノーマライズしたときにもそもそも分布が重なっている
+            recall = res["max_recall_norm_val"]
+            prec   = res["max_prec_norm_val"]
+            if (recall < thres_recall) and (prec < thres_prec): flag = 3 # 分布が完全に重なってしまっている
+            elif recall < thres_recall: flag = 4 # 自分のカテゴリの中に、相手に似ているものがある
+            elif prec   < thres_prec  : flag = 5 # 相手のカテゴリの中に、自分に似ているものがある
+
+        res["judgement"] = flag
+
+        return res
+
 
 if __name__=="__main__":
     rd = rapidDiag()

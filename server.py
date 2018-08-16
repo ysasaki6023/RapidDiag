@@ -1,4 +1,5 @@
 from flask import Flask,session, redirect, url_for, escape, request, render_template, jsonify
+from flask_login import login_user, logout_user, LoginManager, UserMixin
 import sqlite3
 from src.rapidDiag import rapidDiag
 import io
@@ -10,6 +11,10 @@ import numpy as np
 app = Flask(__name__)
 app.debug = True
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "users.login" # login_viewのrouteを設定
 
 # TODO: すべての関数に、認証を追加
 
@@ -46,6 +51,18 @@ con.commit()
 rds = rapidDiag(platform="server")
 rds.set_model(model_type="mobilenet",model_layer="last")
 
+#################################################################################
+@app.route('/login')
+def login():
+    if valid():
+        login_user(user)
+        return redirect(request.args.get('next') or url_for('index'))
+
+@app.route('/logout')
+def logout():
+    logout_user()
+
+#################################################################################
 @app.route('/')
 def index():
     # TODO: ログイン対応
@@ -311,21 +328,43 @@ def evaluate():
         # DBから情報を抽出する
         cur.execute("SELECT * from DataDB__{} WHERE category_id=?".format(CategoryDB_name),
                 (c1,))
-        arr1 = np.array([convert_array(x[2])[0] for x in cur.fetchall()])
+        f1 = cur.fetchall()
+        arr1 = np.array([convert_array(x[2])[0] for x in f1])
+        exp1 = [x[1] for x in f1]
         for c2 in category_id_train:
-            if c1>=c2: continue
+            if c1==c2: continue
             cur.execute("SELECT * from DataDB__{} WHERE category_id=?".format(CategoryDB_name),
                     (c2,))
-            arr2 = np.array([convert_array(x[2])[0] for x in cur.fetchall()])
+            f2 = cur.fetchall()
+            arr2 = np.array([convert_array(x[2])[0] for x in f2])
+            exp2 = [x[1] for x in f2]
             # DBから情報を抽出する
-            print(arr1.shape,arr2.shape)
             item = {}
             item["category_id_1"] = c1
             item["category_id_2"] = c2
             item["category_name_1"] = category_name[c1]
             item["category_name_2"] = category_name[c2]
-            item["separation_probability"] = rds.calc_separation_one(arr1,arr2)[0]
+            jRes = rds.judge_one(arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8)
+            item["result_flag"] =flag= jRes["judgement"]
+            item["result_example"] = []
+
+            if flag in [3,4,5]: # 事例をいれていく
+                example_url1 = [exp1[i] for i in jRes["NG_recall_example_index"].tolist()]
+                example_url2 = [exp2[i] for i in jRes["NG_prec_example_index"].tolist()]
+                example_url = []
+                if   flag==3: # 互い違いに入れていく
+                    minIdx = min(len(example_url1),len(example_url2))
+                    for i in range(minIdx):
+                        example_url.append(example_url1[i])
+                        example_url.append(example_url2[i])
+                    example_url += example_url1[minIdx:]
+                    example_url += example_url2[minIdx:]
+                elif flag==4: example_url=example_url1
+                elif flag==5: example_url=example_url2
+
+                item["result_example"] = example_url
             result["train_pairs"].append(item)
+    print(result)
     result["status"] = "success"
 
     return jsonify(result)
