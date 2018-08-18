@@ -1,11 +1,14 @@
 import sys,os,h5py,glob,itertools,re
 import numpy as np
+import io
 
 import keras
 from keras.preprocessing import image as keras_image
 
 from keras.layers import Dense, GlobalAveragePooling2D, GlobalMaxPooling2D
 from keras.models import Model
+from keras import Input
+from keras import backend as K
 
 import matplotlib.pyplot as plt
 from matplotlib import offsetbox
@@ -13,6 +16,7 @@ from sklearn import manifold, datasets, decomposition, ensemble, discriminant_an
 import tensorflow as tf
 
 from PIL import Image
+import cv2
 
 import tqdm
 
@@ -32,8 +36,10 @@ class rapidDiag(object):
 
     def set_model(self,model_type="mobilenet",model_layer="last"):
         if model_type=="vgg16":
+            assert False, "vgg16 is not implemented yet"
             self.preprocess_input = keras.applications.vgg16.preprocess_input
             self.base_model = base_model = keras.applications.vgg16.VGG16(weights='imagenet', include_top=False)
+            self.last_vis_layer = None 
         elif model_type=="mobilenet":
             self.preprocess_input = keras.applications.mobilenet.preprocess_input
             self.base_model = base_model = keras.applications.mobilenet.MobileNet(input_shape=self.image_size,weights='imagenet', include_top=False)
@@ -45,12 +51,45 @@ class rapidDiag(object):
         else:
             h = base_model.get_layer(model_layer).output
 
+        self.last_vis_layer = last_vis_layer = h
         h = GlobalAveragePooling2D()(h)
         model = Model(inputs=base_model.input, outputs=h)
+        self.output_dim = K.int_shape(h)[-1]
         self.model = model
         self.graph = tf.get_default_graph()
 
+        # grad_cam
+
+        self.v_input = v_input = Input(shape=(K.int_shape(model.output)[1],))
+        #self.d0_input = d0_input = Input(shape=(K.int_shape(model.output)[1],))
+        self.d1_input = d1_input = Input(shape=(K.int_shape(model.output)[1],))
+
+        prob_d0 = K.dot(last_vis_layer-d1_input, K.transpose(-v_input))/K.sum(K.pow(-v_input,2))
+        grads = K.gradients(prob_d0, last_vis_layer)[0]
+        self.gradient_function = gradient_function = K.function([model.input,v_input,d1_input], [last_vis_layer,grads])
+
         return
+
+    def grad_cam(self,img,v,d1):
+        #img_orig = Image.open(img_path)
+        img_orig = img
+        img = img_orig.resize(self.image_size[:2],Image.BICUBIC)
+        img = np.asarray(img).astype(np.float32)
+        img.flags.writeable = True
+        x_vec = np.array([img])
+        x = self.preprocess_input(x_vec)
+        with self.graph.as_default():
+            output, grads_val = self.gradient_function([x,[v],[d1]])
+        output,grads_val = output[0],grads_val[0]
+
+        weights = np.mean(grads_val, axis=(0, 1))
+        cam = np.dot(output, weights)
+
+        cam = cv2.resize(cam, img_orig.size, cv2.INTER_LINEAR)
+        cam = np.maximum(cam, 0)
+        cam = cam / cam.max()
+        
+        return img_orig,cam
 
     def process_one(self,img,batch_size=64):
         """
@@ -93,8 +132,8 @@ class rapidDiag(object):
     def set_files(self):
         self.target_files = target_files = {}
         target_files["basket-bag"] = "img_category/bag/basket-bag/*.jpg"
-        target_files["boston-bag"] = "img_category/bag/boston-bag/*.jpg"
-        target_files["backpack"] = "img_category/bag/backpack/*.jpg"
+        #target_files["boston-bag"] = "img_category/bag/boston-bag/*.jpg"
+        #target_files["backpack"] = "img_category/bag/backpack/*.jpg"
         target_files["hand-bag"] = "img_category/bag/hand-bag/*.jpg"
         #target_files["shoulder-bag"] = "img_category/bag/shoulder-bag/*.jpg"
 
@@ -175,7 +214,7 @@ class rapidDiag(object):
         s = np.sqrt(tx.std()**2+ty.std()**2)
         sep = d/s
 
-        return sep,tx,ty
+        return sep,tx,ty,v,d0,d1
 
     def calc_separation(self,cls1,cls2):
         x = self.X[self.Y==self.cls_list.index(cls1)]
@@ -230,8 +269,12 @@ class rapidDiag(object):
             plt.savefig(output)
         return fig
 
+    def judge_test(self,x,v,d0,d1,max_acc_unnorm_val):
+        ta = (x-d0).dot(v)/np.power(np.linalg.norm(v),2)
+        return ta<max_acc_unnorm_val
+
     def judge_one(self,arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8):
-        _,t1,t2 = self.calc_separation_one(arr1,arr2)
+        _,t1,t2,v01,d0,d1 = self.calc_separation_one(arr1,arr2)
         hrange = (min(np.min(t1),np.min(t2)),max(np.max(t1),np.max(t2)))
         h1,xaxis = np.histogram(t1,bins=nbins,range=hrange,density=False)
         h2,_ = np.histogram(t2,bins=nbins,range=hrange,density=False)
@@ -244,6 +287,7 @@ class rapidDiag(object):
             b1 = h1[i:].sum()
             b2 = h2[:i].sum()
 
+            #print(i,g1,g2,b1,b2)
             Au[i] = (g1+g2)/(g1+g2+b1+b2)
             Ru[i] = g1/(g1+b1)
             Pu[i] = g1/(g1+b2)
@@ -254,6 +298,7 @@ class rapidDiag(object):
             b2 *= s2
 
             An[i] = (g1+g2)/(g1+g2+b1+b2)
+            #print(g1,g2,b1,b2)
             Rn[i] = g1/(g1+b1)
             Pn[i] = g1/(g1+b2)
 
@@ -269,6 +314,9 @@ class rapidDiag(object):
         NGexample2 = NGexample2[np.argsort(t2[NGexample2])][::+1] # 昇順にする
 
         res = {}
+        res["mean_vector_0"] = d0
+        res["mean_vector_1"] = d1
+        res["mean_vector_0_to_1"] = v01
         res["max_acc_unnorm_thres"] = Mu
         res["max_acc_unnorm_val"] = Au[Mu]
         res["max_recall_unnorm_val"] = mRu
@@ -303,6 +351,24 @@ class rapidDiag(object):
         res["judgement"] = flag
 
         return res
+
+    def show_gradcam(self,img,v,d1):
+        img_orig, cam = self.grad_cam(img,v,d1)
+        dpi = 80.0
+        xpixels, ypixels = img_orig.size
+        fig = plt.figure(figsize=(xpixels/dpi, ypixels/dpi),dpi=dpi)
+
+        plt.imshow(img_orig)
+        plt.imshow(cam, cmap='jet', alpha=0.5)
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        plt.axis('off')
+
+        f = io.BytesIO()
+        plt.savefig(f,format="png",pad_inches=0,dpi=dpi)
+        f.flush()
+        f.seek(0)
+        img = Image.open(f)
+        return img
 
 
 if __name__=="__main__":
