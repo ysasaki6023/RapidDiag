@@ -13,6 +13,7 @@
 
         $(window).load(function () {
 
+
             // 行を追加する関数
             var add_new_category_line = function(category_id,category_name,category_type,items_uploaded){
                 // 問い合わせたcategory_idに対応する行を作成する
@@ -324,7 +325,7 @@
                         $("#separationTable tbody tr").last().append("<th>"+data.train_matrix.col[i]+"</th>");
                         for(var j = 0; j<data.train_matrix.col.length; j++)
                         {
-                            var sep_val = "";
+                            var sep_val = -1;
                             for(var p=0; p<data.train_pairs.length; p++)
                             {
                                 if( (i==data.train_pairs[p].category_id_1) && (j==data.train_pairs[p].category_id_2) )
@@ -335,10 +336,17 @@
                             }
                             var sep_text = "";
                             var sep_long = "";
+                            if(sep_val== 0){
+                              sep_text = "学習・推定<br>可能";
+                              sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に学習・推定を行うことが可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
+                              sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習を行うことが可能です。</p>";
+                              sep_long += "<p>"+"加えて、"+data.train_matrix.col[i]+" に属するデータに関しては、推論時のデータと学習時のデータが共通した性質を持っています。従って、推定も十分な精度で行うことが可能です。"+"</p>";
+                            }
                             if(sep_val== 1){
-                              sep_text = "正常識別<br>可能";
+                              sep_text = "学習可能";
                               sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に識別可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
                               sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習・識別を行うことが可能です。</p>";
+                              sep_long += "<p>"+"今回は評価データを指定されなかったため評価を行いませんでしたが、通常はこの後、学習データと評価データが作る特徴量が親しいかを分析し、推論時に十分な性能が期待できるかを評価します。"+"</p>";
                             }
 
                             if(sep_val== 2){
@@ -386,6 +394,12 @@
                               sep_long += "<li>"+data.train_matrix.col[i]+"と"+data.train_matrix.col[j]+"のデータを、何も知らない第三者に見せた時に、期待される以上の精度で区別できるかを確認する。もしできないようであれば、まずきれいなデータ作成の方法について、専門家へ相談。</li>";
                               sep_long += "<li>人間に識別可能な場合には、ニューラルネットワークの学習の工夫による対応が必要です。ディープラーニングの専門家へ相談。</li>";
                               sep_long += "</ul>";
+                            }
+                            if(sep_val== 6){
+                              sep_text = "学習可能・<br>推定困難";
+                              sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に学習・推定を行うことが可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
+                              sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習を行うことが可能です。</p>";
+                              sep_long += "<p>"+"一方で、"+data.train_matrix.col[i]+" に属するデータに関しては、推論時のデータと学習時のデータの性質が大きく異なり、推定時に十分な性能が出せない可能性があります。"+"</p>";
                             }
                             var sep_id = "sep_"+i+"_"+j;
                             long_text[sep_id] = sep_long;
@@ -484,6 +498,12 @@
             </p>
         </div>
     </div>
+    <h1 id="grad_cam">click</h1>
+
+    <img border="0" src="/show_image/1/1" width="128" height="128">
+    <img border="0" src="/show_image/1/2" width="128" height="128">
+    <img border="0" src="/show_gradcam/1/2/1" width="128" height="128">
+    <img border="0" src="/show_gradcam/1/2/2" width="128" height="128">
 
 
   </body>

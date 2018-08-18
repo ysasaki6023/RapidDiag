@@ -352,10 +352,12 @@ class rapidDiag(object):
 
         return res
 
-    def show_gradcam(self,img,v,d1):
+    """
+    def get_gradcam(self,fig,img,v,d1):
         img_orig, cam = self.grad_cam(img,v,d1)
         dpi = 80.0
         xpixels, ypixels = img_orig.size
+        #plt.ioff()
         fig = plt.figure(figsize=(xpixels/dpi, ypixels/dpi),dpi=dpi)
 
         plt.imshow(img_orig)
@@ -369,6 +371,7 @@ class rapidDiag(object):
         f.seek(0)
         img = Image.open(f)
         return img
+    """
 
 
 if __name__=="__main__":
