@@ -11,6 +11,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import uuid
 
 app = Flask(__name__)
 app.debug = True
@@ -46,7 +47,7 @@ sqlite3.register_converter("array", convert_array)
 
 DBFilePath = "temp/db.sqlite"
 ## ProjectDB
-con = sqlite3.connect(DBFilePath)
+con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
 cur = con.cursor()
 cur.execute("create table IF NOT EXISTS ProjectDB (user_name text, project_name text, CategoryDB_name text)")
 con.commit()
@@ -60,11 +61,11 @@ rds.set_model(model_type="mobilenet",model_layer="last")
 def login():
     # ToDo: パスワードチェックをかける
     if request.method == 'POST':
-        session['username'] = request.form['username']
+        session['user_name'] = request.form['user_name']
         return redirect(url_for('index'))
     return '''
         <form method="post">
-            <p><input type=text name=username>
+            <p><input type=text name=user_name>
             <p><input type=submit value=Login>
         </form>
     '''
@@ -72,39 +73,45 @@ def login():
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not 'username' in session:
+        if not 'user_name' in session:
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
 @app.route('/logout')
 def logout():
-    # remove the username from the session if it's there
-    session.pop('username', None)
+    # remove the user_name from the session if it's there
+    session.pop('user_name', None)
     return redirect(url_for('index'))
 
 #################################################################################
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', user_name="test user", css_url = url_for('static', filename='style.css'))
+    #session['project_name'] = uuid.uuid4() # セッションごとに別のプロジェクトを作れる
+    session['project_name'] = session['user_name'] # セッションを跨いで結果が保存される
+    #new_project()
+    return render_template('index.html', user_name=session['user_name'], project_name = session['project_name'], css_url = url_for('static', filename='style.css'))
 
-def generate_CategoryDB_name(user_name,project_name):
+#def generate_CategoryDB_name(user_name,project_name):
+def generate_CategoryDB_name():
+    user_name = session['user_name']
+    project_name = session['project_name']
     CategoryDB_name  = user_name.replace(" ","_").replace("/","_").replace(".","_")
     CategoryDB_name += "__"
     CategoryDB_name += project_name.replace(" ","_").replace("/","_").replace(".","_")
     return CategoryDB_name
 
 #################################################################################
+"""
 @app.route('/show_project',methods=["POST","GET"])
 @login_required
 def show_project():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
+    user_name = session['user_name']
     con = sqlite3.connect(DBFilePath)
     cur = con.cursor()
     cur.execute("SELECT * from ProjectDB where user_name=?",
                  (user_name,))
-
 
     jstr = {"count":0,"project_name":[]}
     for row in cur:
@@ -112,30 +119,25 @@ def show_project():
         jstr["project_name"].append(row[1])
 
     return jsonify(jstr)
+"""
 
 @app.route('/new_project',methods=["POST"])
 @login_required
 def new_project():
-    try:
-        project_name = request.json["project_name"]
-    except:
-        return jsonify({"status":"failed"})
-    
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
 
-    con = sqlite3.connect(DBFilePath)
+    # すでに存在している場合には、まず削除
+    del_project()
+
+    # 新たに作る
+    CategoryDB_name = generate_CategoryDB_name()
+
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
     # 上書き確認
     cur.execute("SELECT * from ProjectDB where CategoryDB_name=?",
                 (CategoryDB_name,))
     if not len(cur.fetchall())==0:
         return jsonify({"status":"existed"})
-
-    # ProjectDBに記録
-    cur.execute("INSERT into ProjectDB values (?,?,?)",
-                (user_name,project_name,CategoryDB_name))
-    con.commit()
 
     # CategoryDB__XXを作成
     cur.execute("create table IF NOT EXISTS CategoryDB__{} (category_id integer primary key, category_type text, category_name text, center array)".format(CategoryDB_name))
@@ -145,20 +147,21 @@ def new_project():
     cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, data_id integer, filename text, feature array, image blob, primary key(category_id,data_id))".format(CategoryDB_name))
     con.commit()
 
+    # ProjectDBに記録
+    user_name = session['user_name']
+    project_name = session['project_name']
+    cur.execute("INSERT into ProjectDB values (?,?,?)",
+                (user_name,project_name,CategoryDB_name))
+    con.commit()
+
     return jsonify({"status":"success"})
 
 @app.route('/del_project',methods=["POST"])
 @login_required
 def del_project():
-    try:
-        project_name = request.json["project_name"]
-    except:
-        return jsonify({"status":"existed"})
-    
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
+    CategoryDB_name = generate_CategoryDB_name()
 
-    con = sqlite3.connect(DBFilePath)
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
 
     ################
@@ -166,6 +169,7 @@ def del_project():
     cur.execute("SELECT * from ProjectDB where CategoryDB_name=?",
                 (CategoryDB_name,))
     if len(cur.fetchall())>0:
+        print("delete column from ProjectDB")
         cur.execute("DELETE from ProjectDB where CategoryDB_name=?",
                     (CategoryDB_name,))
         con.commit()
@@ -173,26 +177,26 @@ def del_project():
     ################
     # CategoryDB__XX, DataDB__XXを削除
     try:
-        cur.execute("DROP TABLE CategoryDB_name=?",
-                    (CategoryDB_name,))
+        cur.execute("DROP TABLE CategoryDB__{}".format(CategoryDB_name))
         con.commit()
+        print("delete CategoryDB__{}".format(CategoryDB_name))
     except:
         pass
+
     ##
     try:
-        cur.execute("DROP TABLE DataDB_name=?",
-                    (CategoryDB_name,))
+        cur.execute("DROP TABLE DataDB__{}".format(CategoryDB_name))
         con.commit()
+        print("delete DataDB__{}".format(CategoryDB_name))
     except:
         pass
 
     return jsonify({"status":"success"})
 
 #################################################################################
-@app.route('/upload/<project_name>/<int:category_id>',methods=["POST"])
+@app.route('/upload/<int:category_id>',methods=["POST"])
 @login_required
-def upload(project_name,category_id):
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
+def upload(category_id):
     try:
         img_data = request.files["file"]
         img_filename = img_data.filename
@@ -203,8 +207,8 @@ def upload(project_name,category_id):
         return jsonify({"status":"incorrect image file"})
 
     # DBへ保存
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath, detect_types=sqlite3.PARSE_DECLTYPES)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath, detect_types=sqlite3.PARSE_DECLTYPES,isolation_level="IMMEDIATE") # ここは次々とリクエストが来るとユニーク性が失われてしまうので、IMMEDIATEにしておく必要
     cur = con.cursor()
     cur.execute("SELECT COUNT (*) FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
                     (category_id,))
@@ -225,17 +229,19 @@ def upload(project_name,category_id):
 @app.route('/add_category',methods=["POST"])
 @login_required
 def add_category():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    try:
-        project_name = request.json["project_name"]
-        print(request.json)
-    except:
-        return jsonify({"status":"fail"})
 
     # DBを更新
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
+
+    # そもそも、きちんとプロジェクトが作成されているか？
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='CategoryDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='DataDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
+
+    # カテゴリを追加
     cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
     max_idx = -1
     for line in cur:
@@ -245,7 +251,7 @@ def add_category():
 
     # レコードを作成
     cur.execute("INSERT into CategoryDB__{} values (?,?,?,?)".format(CategoryDB_name), 
-                (next_idx, "temp_name", "train", np.zeros(rds.output_dim,)))
+                (next_idx, "Category{}".format(next_idx), "train", np.zeros(rds.output_dim,)))
     con.commit()
 
     return jsonify({"status":"success","category_id":next_idx})
@@ -253,9 +259,7 @@ def add_category():
 @app.route('/change_category',methods=["POST"])
 @login_required
 def change_category():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
     try:
-        project_name  = request.json['project_name']
         category_id   = request.json['category_id']
         category_name = request.json['category_name']
         category_type = request.json['category_type']
@@ -265,8 +269,8 @@ def change_category():
     if not category_type in ["train","test"]: return jsonify({"status":"incorrect type:".format(category_type)})
 
     # DBを更新
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
 
     # TODO:Updateのみに修正
@@ -279,17 +283,16 @@ def change_category():
 @app.route('/get_category',methods=["POST"])
 @login_required
 def get_category():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    try:
-        project_name  = request.json['project_name']
-        print(request.json)
-    except:
-        return jsonify({"status":"fail"})
-
     # DBを更新
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
+
+    # そもそも、きちんとプロジェクトが作成されているか？
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='CategoryDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='DataDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
 
     cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
     res = {"count":0,"items":[]}
@@ -300,44 +303,27 @@ def get_category():
         items_uploaded = cur.fetchall()[0][0]
         res["count"] += 1
         res["items"].append({"category_id":line[0],"category_name":line[1],"category_type":line[2],"items_uploaded":items_uploaded})
-    print(res)
     return jsonify(res)
-    #except:
-    #    res = {"count":0,"items":[]}
-    #    return jsonify(res)
 
 @app.route('/delete_category',methods=["POST"])
 @login_required
 def delete_category():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    try:
-        project_name  = request.json['project_name']
-        category_id   = request.json['category_id']
-    except:
-        return jsonify({"status":"fail"})
+    category_id  = request.json['category_id']
 
     # DBを更新
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
 
     # まず、CategoryDBを更新
-    try:
-        cur.execute("DELETE from CategoryDB__{} where category_id=?".format(CategoryDB_name),
-                    (category_id,))
-        con.commit()
-    except:
-        # Tableが存在しなかった
-        pass
+    cur.execute("DELETE from CategoryDB__{} where category_id=?".format(CategoryDB_name),
+                (category_id,))
+    con.commit()
 
     # もし、DataDBにデータがあるのならば、それらも削除
-    try:
-        cur.execute("DELETE FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
-                    (category_id,))
-        con.commit()
-    except:
-        # Tableが存在しなかった
-        pass
+    cur.execute("DELETE FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
+                (category_id,))
+    con.commit()
 
     return jsonify({"status":"success"})
 
@@ -345,15 +331,10 @@ def delete_category():
 @app.route('/evaluate',methods=["POST"])
 @login_required
 def evaluate():
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    try:
-        project_name  = request.json['project_name']
-    except:
-        return jsonify({"status":"fail"})
 
     # trainのカテゴリを抽出する
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
 
     cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
@@ -365,11 +346,11 @@ def evaluate():
     category_id_correspondence = {}
     for k in category_id_train:
         name = category_name[k]
+        category_id_correspondence[k] = -1
         for m in category_id_test:
             if category_name[m] == name:
                 category_id_correspondence[k] = m
-            else:
-                category_id_correspondence[k] = -1
+                break
 
     result = {"train_pairs":[],
               "train_matrix":{
@@ -385,8 +366,8 @@ def evaluate():
         did1 = [x[1] for x in f1]
 
         # DBへ書き込む
-        CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-        con = sqlite3.connect(DBFilePath)
+        CategoryDB_name = generate_CategoryDB_name()
+        con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
         cur = con.cursor()
         cur.execute("REPLACE into CategoryDB__{} values (?,?,?,?)".format(CategoryDB_name), 
                     (c1, category_name[c1], category_type[c1], np.mean(arr1,axis=0)))
@@ -474,11 +455,8 @@ def evaluate():
 @app.route('/show_image/<int:category_id>/<int:data_id>',methods=["GET"])
 @login_required
 def show_image(category_id,data_id):
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    project_name = "test3"
-    
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
     cur.execute("SELECT * from DataDB__{} WHERE category_id=? and data_id=?".format(CategoryDB_name),
             (category_id,data_id))
@@ -495,12 +473,9 @@ def show_image(category_id,data_id):
 @app.route('/show_gradcam/<int:category_id_1>/<int:category_id_2>/<int:data_id_1>',methods=["GET"])
 @login_required
 def gradcam(category_id_1,category_id_2,data_id_1):
-    user_name = "test user" # TODO: sessionができたら、これもログイン名に直す
-    project_name = "test3"
-
     # Step1: カテゴリの中心を抽出
-    CategoryDB_name = generate_CategoryDB_name(user_name,project_name)
-    con = sqlite3.connect(DBFilePath)
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
     cur = con.cursor()
 
     cur.execute("SELECT * from CategoryDB__{} WHERE category_id=?".format(CategoryDB_name),

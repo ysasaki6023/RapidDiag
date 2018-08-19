@@ -90,6 +90,12 @@ h2 {
     border-radius: 0.5em;/*角丸*/
 }
 
+.button_red {
+    border-color: #f44b5c;
+    color: #f44b5c;
+    float: right !important;
+}
+
 .square_btn{
     display: inline-block;
     padding: 0.5em 1em;
@@ -140,4 +146,19 @@ h2 {
     background-color:#999999;
     color:#000000;
     text-align:center
+}
+
+
+#dataTable td {
+  border-width: 1px 0;
+  border-style: solid;
+  border-color: #999;
+}
+
+.introduction {
+    font-size: 80%;
+    color: #1C1C1C;
+}
+#evaluate_error {
+    color: #f44b5c;
 }
