@@ -76,11 +76,11 @@ h2 {
    color: #000000;/*文字色*/
 }
 
-.sep_desk {
+.sep_box {
     margin: 2em 0;
     background: #dcefff;
 }
-.sep_desk .box-title {
+.sep_box .box-title {
     font-size: 1.2em;
     background: #5fb3f5;
     padding: 4px;
@@ -89,7 +89,7 @@ h2 {
     font-weight: bold;
     letter-spacing: 0.05em;
 }
-.sep_desk p {
+.sep_box p {
     padding: 15px 20px;
     margin: 0;
 }
