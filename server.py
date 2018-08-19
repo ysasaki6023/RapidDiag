@@ -47,7 +47,7 @@ sqlite3.register_converter("array", convert_array)
 
 DBFilePath = "temp/db.sqlite"
 ## ProjectDB
-con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
 cur = con.cursor()
 cur.execute("create table IF NOT EXISTS ProjectDB (user_name text, project_name text, CategoryDB_name text)")
 con.commit()
@@ -103,23 +103,6 @@ def generate_CategoryDB_name():
     return CategoryDB_name
 
 #################################################################################
-"""
-@app.route('/show_project',methods=["POST","GET"])
-@login_required
-def show_project():
-    user_name = session['user_name']
-    con = sqlite3.connect(DBFilePath)
-    cur = con.cursor()
-    cur.execute("SELECT * from ProjectDB where user_name=?",
-                 (user_name,))
-
-    jstr = {"count":0,"project_name":[]}
-    for row in cur:
-        jstr["count"] += 1
-        jstr["project_name"].append(row[1])
-
-    return jsonify(jstr)
-"""
 
 @app.route('/new_project',methods=["POST"])
 @login_required
@@ -131,7 +114,7 @@ def new_project():
     # 新たに作る
     CategoryDB_name = generate_CategoryDB_name()
 
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
     # 上書き確認
     cur.execute("SELECT * from ProjectDB where CategoryDB_name=?",
@@ -161,7 +144,7 @@ def new_project():
 def del_project():
     CategoryDB_name = generate_CategoryDB_name()
 
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     ################
@@ -208,7 +191,7 @@ def upload(category_id):
 
     # DBへ保存
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath, detect_types=sqlite3.PARSE_DECLTYPES,isolation_level="IMMEDIATE") # ここは次々とリクエストが来るとユニーク性が失われてしまうので、IMMEDIATEにしておく必要
+    con = sqlite3.connect(DBFilePath, detect_types=sqlite3.PARSE_DECLTYPES,isolation_level="IMMEDIATE",timeout=60*1000) # ここは次々とリクエストが来るとユニーク性が失われてしまうので、IMMEDIATEにしておく必要
     cur = con.cursor()
     cur.execute("SELECT COUNT (*) FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
                     (category_id,))
@@ -232,7 +215,7 @@ def add_category():
 
     # DBを更新
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     # そもそも、きちんとプロジェクトが作成されているか？
@@ -270,7 +253,7 @@ def change_category():
 
     # DBを更新
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     # TODO:Updateのみに修正
@@ -285,7 +268,7 @@ def change_category():
 def get_category():
     # DBを更新
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     # そもそも、きちんとプロジェクトが作成されているか？
@@ -312,7 +295,7 @@ def delete_category():
 
     # DBを更新
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     # まず、CategoryDBを更新
@@ -334,7 +317,7 @@ def evaluate():
 
     # trainのカテゴリを抽出する
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
@@ -355,7 +338,8 @@ def evaluate():
     result = {"train_pairs":[],
               "train_matrix":{
                   "size": len(category_id_train),
-                  "col": [category_name[x] for x in category_id_train]}
+                  "col": [category_name[x] for x in category_id_train],
+                  "idx": category_id_train}
               }
     for c1 in category_id_train:
         # DBから情報を抽出する
@@ -367,7 +351,7 @@ def evaluate():
 
         # DBへ書き込む
         CategoryDB_name = generate_CategoryDB_name()
-        con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+        con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
         cur = con.cursor()
         cur.execute("REPLACE into CategoryDB__{} values (?,?,?,?)".format(CategoryDB_name), 
                     (c1, category_name[c1], category_type[c1], np.mean(arr1,axis=0)))
@@ -391,25 +375,29 @@ def evaluate():
             item["category_name_2"] = category_name[c2]
             jRes = rds.judge_one(arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8)
             item["result_flag"] =flag= jRes["judgement"]
-            item["result_example"] = []
+            item["result_example1"] = []
+            item["result_example2"] = []
 
             test_items.append({"c2":c2,"max_acc_unnorm_val":jRes["max_acc_unnorm_val"],"mean_vector_0":jRes["mean_vector_0"],"mean_vector_1":jRes["mean_vector_1"],"mean_vector_0_to_1":jRes["mean_vector_0_to_1"],"judgement":jRes["judgement"]})
 
-            if flag in [3,4,5]: # 事例をいれていく
-                example_did1 = [did1[i] for i in jRes["NG_recall_example_index"].tolist()]
-                example_did2 = [did2[i] for i in jRes["NG_prec_example_index"].tolist()]
-                example_did = []
-                if   flag==3: # 互い違いに入れていく
-                    minIdx = min(len(example_url1),len(example_url2))
-                    for i in range(minIdx):
-                        example_url.append(example_url1[i])
-                        example_url.append(example_url2[i])
-                    example_url += example_url1[minIdx:]
-                    example_url += example_url2[minIdx:]
-                elif flag==4: example_url=example_url1
-                elif flag==5: example_url=example_url2
+            #if flag in [3,4,5]: # 事例をいれていく
+            example_did1 = [(c1,did1[i]) for i in jRes["NG_recall_example_index"].tolist()]
+            example_did2 = [(c2,did2[i]) for i in jRes["NG_prec_example_index"].tolist()]
+            #example_did = []
+            if flag==0 or flag==1: # 正解データを入れていく
+                item["result_example1"] = [(c1,x) for x in did1]
+                item["result_example2"] = []
+            elif flag==3: # 互い違いに入れていく
+                item["result_example1"] = example_did1
+                item["result_example2"] = example_did2
+            elif flag==4:
+                item["result_example1"] = example_did1
+                item["result_example2"] = []
+                #example_did=example_did1
+            elif flag==5:
+                item["result_example1"] = []
+                item["result_example2"] = example_did2
 
-                item["result_example"] = example_url
 
             result["train_pairs"].append(item)
 
@@ -451,12 +439,13 @@ def evaluate():
     result["status"] = "success"
 
     return jsonify(result)
+
 #################################################################################
 @app.route('/show_image/<int:category_id>/<int:data_id>',methods=["GET"])
 @login_required
 def show_image(category_id,data_id):
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
     cur.execute("SELECT * from DataDB__{} WHERE category_id=? and data_id=?".format(CategoryDB_name),
             (category_id,data_id))
@@ -475,7 +464,7 @@ def show_image(category_id,data_id):
 def gradcam(category_id_1,category_id_2,data_id_1):
     # Step1: カテゴリの中心を抽出
     CategoryDB_name = generate_CategoryDB_name()
-    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED")
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
     cur = con.cursor()
 
     cur.execute("SELECT * from CategoryDB__{} WHERE category_id=?".format(CategoryDB_name),

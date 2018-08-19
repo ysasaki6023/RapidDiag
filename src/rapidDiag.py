@@ -275,12 +275,17 @@ class rapidDiag(object):
 
     def judge_one(self,arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8):
         _,t1,t2,v01,d0,d1 = self.calc_separation_one(arr1,arr2)
-        hrange = (min(np.min(t1),np.min(t2)),max(np.max(t1),np.max(t2)))
-        h1,xaxis = np.histogram(t1,bins=nbins,range=hrange,density=False)
-        h2,_ = np.histogram(t2,bins=nbins,range=hrange,density=False)
+        hrange = [min(np.min(t1),np.min(t2)),max(np.max(t1),np.max(t2))]
+        hrange = [max(hrange[0],-1.),min(hrange[1],+2)] # 流石にこれ以上広がるとまずいので
+        if np.isnan(hrange[0]): hrange[0] = -1.
+        if np.isnan(hrange[1]): hrange[1] = +2.
+        h1,xaxis = np.histogram(t1,bins=nbins,range=tuple(hrange),density=False)
+        h2,_ = np.histogram(t2,bins=nbins,range=tuple(hrange),density=False)
         An, Au, Rn, Pn, Ru, Pu = [np.zeros((nbins,),dtype=np.float32) for _ in range(6)]
         s1 = h1.sum() / (h1.sum()+h2.sum())
         s2 = h2.sum() / (h1.sum()+h2.sum())
+        n1 = h1.sum()
+        n2 = h1.sum()
         for i in range(nbins):
             g1 = h1[:i].sum()
             g2 = h2[i:].sum()
@@ -338,7 +343,7 @@ class rapidDiag(object):
         isOK_norm   = (res["max_recall_norm_val"]  >thres_recall) and (res["max_prec_norm_val"]  >thres_prec)
 
         flag = -1
-        if s1==0 or s2==0: flag = -1 # 片方の分布が空
+        if n1==0 or n2==0: flag = -2 # 片方の分布が空。もしくはhrangeの範囲内に入っていない
         elif isOK_unnorm and isOK_norm: flag = 1 # 十分に分布が分離している
         elif isOK_norm: flag = 2 # データ数が少ない
         else: # ノーマライズしたときにもそもそも分布が重なっている

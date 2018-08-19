@@ -41,6 +41,11 @@ h2 {
    height: 50px;
 }
 
+#separationTable .sep_td_0 {
+   background: #44D37E;
+   color: #000000;/*文字色*/
+}
+
 #separationTable .sep_td_1 {
    background: #44D37E;
    color: #000000;/*文字色*/
@@ -62,15 +67,20 @@ h2 {
 }
 
 #separationTable .sep_td_5 {
+   background: #6EC4FF;
+   color: #000000;/*文字色*/
+}
+
+#separationTable .sep_td_6 {
    background: #9573FF;
    color: #000000;/*文字色*/
 }
 
-.sep_box {
+.sep_desk {
     margin: 2em 0;
     background: #dcefff;
 }
-.sep_box .box-title {
+.sep_desk .box-title {
     font-size: 1.2em;
     background: #5fb3f5;
     padding: 4px;
@@ -79,7 +89,7 @@ h2 {
     font-weight: bold;
     letter-spacing: 0.05em;
 }
-.sep_box p {
+.sep_desk p {
     padding: 15px 20px;
     margin: 0;
 }
@@ -162,3 +172,11 @@ h2 {
 #evaluate_error {
     color: #f44b5c;
 }
+
+#example_images h3 {
+}
+
+#example_images div {
+ display: block;
+ margin: auto;
+ }
