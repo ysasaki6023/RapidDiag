@@ -1,4 +1,4 @@
-ARG api_version=v1.0
+ARG api_version=release
 ARG cuda_version=9.0
 ARG cudnn_version=7
 FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
@@ -43,8 +43,9 @@ RUN conda install -y python=${python_version} && \
     pip install \
       sklearn_pandas \
       tensorflow && \
-    pip install https://cntk.ai/PythonWheel/CPU-Only/cntk-2.1-cp36-cp36m-linux_x86_64.whl && \
-    conda install \
+    pip install https://cntk.ai/PythonWheel/CPU-Only/cntk-2.1-cp36-cp36m-linux_x86_64.whl
+
+RUN conda install \
       bcolz \
       h5py \
       matplotlib \
@@ -61,8 +62,16 @@ RUN conda install -y python=${python_version} && \
     git clone git://github.com/keras-team/keras.git /src && pip install -e /src[tests] && \
     pip install git+git://github.com/keras-team/keras.git && \
     conda clean -yt
+RUN pip install \
+      Flask \
+      Flask-Login \
+      Pillow \
+      scikit-learn \
+      sklearn \
+      tqdm \
+      opencv-python
 
-ADD theanorc /home/keras/.theanorc
+#ADD theanorc /home/keras/.theanorc
 
 ENV PYTHONPATH='/src/:$PYTHONPATH'
 
@@ -76,4 +85,5 @@ EXPOSE 8080
 RUN git clone https://github.com/ysasaki6023/RapidDiag.git
 WORKDIR RapidDiag
 RUN git checkout ${api_version}
+RUN echo "now running..."
 CMD python server.py
