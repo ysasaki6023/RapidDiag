@@ -5,6 +5,7 @@ FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
 
 # Install system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      vim \
       bzip2 \
       g++ \
       git \
@@ -12,8 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1-mesa-glx \
       libhdf5-dev \
       openmpi-bin \
-      wget && \
-    rm -rf /var/lib/apt/lists/*
+      wget
 
 # Install conda
 ENV CONDA_DIR /opt/conda
@@ -42,8 +42,7 @@ RUN conda install -y python=${python_version} && \
     pip install --upgrade pip && \
     pip install \
       sklearn_pandas \
-      tensorflow && \
-    pip install https://cntk.ai/PythonWheel/CPU-Only/cntk-2.1-cp36-cp36m-linux_x86_64.whl
+      tensorflow
 
 RUN conda install \
       bcolz \
@@ -71,6 +70,7 @@ RUN pip install \
       tqdm \
       opencv-python
 
+
 #ADD theanorc /home/keras/.theanorc
 
 ENV PYTHONPATH='/src/:$PYTHONPATH'
@@ -82,6 +82,7 @@ EXPOSE 8080
 #CMD jupyter notebook --port=8888 --ip=0.0.0.0
 
 # RUN: docker buildするときに実行される
+ADD https://api.github.com/repos/ysasaki6023/RapidDiag/git/refs/heads/release version.json
 RUN git clone https://github.com/ysasaki6023/RapidDiag.git
 WORKDIR RapidDiag
 RUN git checkout ${api_version}
