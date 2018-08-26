@@ -2,7 +2,7 @@
 <html>
   <head>
 
-      <title>DSDL</title>
+    <title>Rapid Data Diagnosis Tool</title>
 
     <link rel="stylesheet" href={{css_url}}/>
 
@@ -11,32 +11,36 @@
         /////////////////////////////////////////////////////////////////////
         // プロジェクト系の設定
 
-        $(window).load(function () {
+        $(window).load(function ()
+        {
             // 行を追加する関数
-            var add_new_category_line = function(category_id,category_name,category_type,items_uploaded){
+            var add_new_category_line = function(category_id,category_name,category_type,items_uploaded)
+            {
                 // 問い合わせたcategory_idに対応する行を作成する
                 htmlStr = '<tr>'+
                         '<td width=20%>'+
                         '<input type="text" name="category_name" class="input" category_index="'+category_id+'" value="'+category_name+'">'+
                         '</td>'+
                         '<td width=20%>'
+
                 if(category_type=="train")
                 {
-                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train" checked>学習用'+
+                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train" checked>学習画像'+
                         '<br>'+
-                        '<input type="radio" name="train_or_test_'+category_id+'" value="test">評価用'+
+                        '<input type="radio" name="train_or_test_'+category_id+'" value="test">推論時画像'+
                         '</td>'
                 }
                 else
                 {
-                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train">学習用'+
+                    htmlStr +='<input type="radio" name="train_or_test_'+category_id+'" value="train">学習画像'+
                         '<br>'+
-                        '<input type="radio" name="train_or_test_'+category_id+'" value="test" checked>評価用'+
+                        '<input type="radio" name="train_or_test_'+category_id+'" value="test" checked>推論時画像'+
                         '</td>'
                 }
                 htmlStr += '<td width=50%>'+
                             '<div class="drag-area" category_index="'+category_id+'">'+
                                 '<div class="w3-light-grey" style="width:100%">'
+
                 if(items_uploaded==0)
                 {
                     htmlStr +=          '<div class="w3-container w3-blue-before w3-center" is_sending="No" total_num=0 style="width:100%">Drop files here</div>';
@@ -45,6 +49,7 @@
                 {
                     htmlStr +=          '<div class="w3-container w3-blue w3-center"  is_sending="No" total_num='+items_uploaded+' style="width:100%">'+items_uploaded+'/'+items_uploaded+' (100%)</div>';
                 }
+
                 htmlStr +=     '</div>'+
                             '</div>'+
                         '</td>'+
@@ -58,7 +63,8 @@
 
 
             // 全体の更新
-            var update_view_category = function(){
+            var update_view_category = function()
+            {
                 var defer = $.Deferred();
                 console.log("update_view_category");
                 $.ajax({
@@ -66,7 +72,7 @@
                     type:"POST",
                     contentType: "application/json; charset=utf-8"
                 }).then(function(data){
-                    console.log(data);
+                    //console.log(data);
                     if(data.items.length==0){
                       // 一行も存在しない場合、はじめに一行追加してあげる
                       add_category();
@@ -85,17 +91,16 @@
             update_view_category();
 
             // プロジェクトの削除 & 新規作成
-            $(".project_del").on("click",function()
-                {
-                  console.log("project_del");
-                      $.ajax({
-                          url:"/new_project",
-                          type:"POST",
-                          contentType: "application/json; charset=utf-8"
-                      }).then(function(){
-                          update_view_category();
-                      });
+            $(".project_del").on("click",function(){
+                //console.log("project_del");
+                $.ajax({
+                    url:"/new_project",
+                    type:"POST",
+                    contentType: "application/json; charset=utf-8"
+                }).then(function(){
+                    update_view_category();
                 });
+            });
 
         /////////////////////////////////////////////////////////////////////
         // データの読み込み・カテゴリ修正に関する設定
@@ -108,7 +113,7 @@
                     contentType: "application/json; charset=utf-8"
                 }).then(function(data){
                     category_id = data.category_id;
-                    console.log("add_category() category_id="+category_id);
+                    //console.log("add_category() category_id="+category_id);
                     update_view_category();
                 });
             };
@@ -119,20 +124,18 @@
             // 削除ボタンの実装
             $('tbody').on("click",'.del-line',function(){
                 category_id = $(this).closest('tr').find('input').attr("category_index");
-                console.log(".del-line category_id="+category_id);
-
+                //console.log(".del-line category_id="+category_id);
                 $.ajax({
                     url:"/delete_category",
                     type:"POST",
                     contentType: "application/json; charset=utf-8",
-                    data:JSON.stringify(
-                        {"category_id":$(this).closest('tr').find('input').attr("category_index")
-                        })
+                    data:JSON.stringify({
+                      "category_id":$(this).closest('tr').find('input').attr("category_index")
+                    })
                 }).then(function(data){
                     // 画面から削除する
                     update_view_category();
                 });
-
             });
 
             // 一つのファイルのアップロード処理
@@ -140,7 +143,7 @@
               // Ajaxでアップロード処理をするファイルへ内容渡す
               file = arrfiles.shift();
               var fd = new FormData();
-              console.log(file["name"]);
+              //console.log(file["name"]);
               fd.append("file", file);
               $.ajax({
                   url: '/upload/'+category_id,
@@ -152,7 +155,7 @@
                 current_num +=1;
                 var progre = parseInt(current_num/total_num * 100);
                 $('.drag-area[category_index="'+category_id+'"]').find('.w3-container').attr("style","width:"+progre+"%").text(current_num+"/"+total_num+" ("+progre+"%)");
-                    console.log(data);
+                //console.log(data);
 
                 if(arrfiles.length>0)
                 {
@@ -210,7 +213,7 @@
                     category_name: $(tr_item).find('input[name="category_name"]').val(),
                     category_type: $(tr_item).find('input[type="radio"]:checked').val()
                 };
-                console.log(JSON.stringify(data));
+                //console.log(JSON.stringify(data));
 
                 $.ajax({
                     url: '/change_category',
@@ -254,13 +257,11 @@
               }
               return html;
             }
-            //
-            var ask_questions = function(){
-            }
 
             // evaluate_startの処理
             var long_text = {};
             $('#evaluate_start').on('click', function() {
+              // クリーンアップ
               $("#questions").html("");
               // ファイル名等の確認
               $.ajax({
@@ -271,7 +272,7 @@
                 $("#evaluate_error").text("");
                 if(data.items.length<2){
                   // 一行も存在しない場合、はじめに一行追加してあげる
-                  $("#evaluate_error").text("2つ以上の学習カテゴリを指定してください。");
+                  $("#evaluate_error").text("2つ以上のカテゴリを指定してください。");
                   return false;
                 }
                 for(var i=0; i<data.items.length; i++)
@@ -293,19 +294,19 @@
                       }
                     }
                     if(flag==false){
-                      $("#evaluate_error").text(data.items[i].category_name+"に対応する学習データがありません。このカテゴリを削除してください。");
+                      $("#evaluate_error").text(data.items[i].category_name+"は推論時画像ですが、これに対応する学習データがありません。");
                       return false;
                     }
                   }
                 }
 
-                console.log("start 1st evaluation");
+                //console.log("start 1st evaluation");
                 $.ajax({
                     url: '/evaluate',
                     type: 'POST',
                     contentType: "application/json; charset=utf-8"
                 }).then(function(data) {
-                    // ここで人間に質問をする
+                    // ユーザに質問をする
                     for(var p = 0; p<data.train_pairs.length; p++)
                     {
                         var sep_val = data.train_pairs[p].result_flag;
@@ -321,12 +322,14 @@
                                 if(k>max_num_of_images) break;
                                 example_did.push(data.train_pairs[p].result_example1[k]);
                             }
-                            console.log(example_did);
+                            //console.log(example_did);
                             // gradcamによる識別結果を人間に問いかける
-                            q_text = "<div class='box-title'>注目点の確認</div>";
-                            q_text += "<p>以下の画像は、ニューラルネットワークによる認識が、画像の中のどの箇所を手がかりにして行われたかをハイライトしています (赤い箇所ほど注目度合いが強い)。表示されている画像のうちいくつで、注目するべき物体がハイライトされているかを確認してください。</p>";
+                            q_text = "<div class='box-title'><h3>注目点の確認</h3></div>";
+                            q_text += "<p>下の画像は、ニューラルネットワークが、画像の中のどの箇所に注目したかをハイライトしています (赤い箇所ほど強く注目)。</p>";
+                            q_text += "<p>カテゴリの区別を行う上で、人間が見るのと同様の箇所に注目しているのは正常。反対に、背景などを見ている場合は異常です。</p>";
+                            q_text += "<p>下の"+max_num_of_images+"枚の画像の中で、何枚が正常か、カウントして入力してください。</p>";
 
-                            q_text += "<select id='num_of_grad'>";
+                            q_text += "正常枚数: <select id='num_of_grad'>";
                             for(var t=1; t<=max_num_of_images; t++)
                             {
                                 q_text += "<option value='"+t+"'>"+t+"</option>";
@@ -337,7 +340,7 @@
                             q_text += "</h3>";
 
                             $("#questions").html(q_text);
-                            console.log(q_text);
+                            //console.log(q_text);
 
                             $("#questions #num_of_grad").on("change",function(){
                                 $.ajax({
@@ -355,12 +358,12 @@
                                     $("#evaluate_start").trigger("click");
                                 });
                             });
-                            return false; // はじめの-3だけ表示させて後はループ諸々を抜ける
+                            return false; // -3があるときには、一回だけこのループが実行されるようにしたい。現状、これ以下の.then()も実行されてしまうので、方法考えないといけない
                         }
                     }
                 }).then(function(){
 
-                    console.log("start 2nd evaluation");
+                    //console.log("start 2nd evaluation");
                     $.ajax({
                         url: '/evaluate',
                         type: 'POST',
@@ -370,7 +373,7 @@
                         $("#separationTable tbody").html("");
                         // 1行目を作る
                         $("#separationTable tbody").append("<tr></tr>");
-                        $("#separationTable tbody tr").append("<th></th>");
+                        $("#separationTable tbody tr").append("<th class='category'>カテゴリ名</th>");
                         for(var i = 0; i<data.train_matrix.col.length; i++)
                         {
                             $("#separationTable tbody tr").append("<th>"+data.train_matrix.col[i]+"</th>");
@@ -379,7 +382,7 @@
                         for(var i = 0; i<data.train_matrix.col.length; i++)
                         {
                             $("#separationTable tbody").append("<tr></tr>");
-                            $("#separationTable tbody tr").last().append("<th>"+data.train_matrix.col[i]+"</th>");
+                            $("#separationTable tbody tr").last().append("<th class='category'>"+data.train_matrix.col[i]+"</th>");
                             for(var j = 0; j<data.train_matrix.col.length; j++)
                             {
                                 var sep_val = -1;
@@ -390,163 +393,183 @@
                                 var category_id_2 = data.train_matrix.idx[j];
                                 for(var p=0; p<data.train_pairs.length; p++)
                                 {
-                                    if( (category_id_1==data.train_pairs[p].category_id_1) && (category_id_2==data.train_pairs[p].category_id_2) )
-                                    {
+                                  // テーブルのマス目に対応するtrain_pairsを検索する
+                                  if( (category_id_1==data.train_pairs[p].category_id_1) && (category_id_2==data.train_pairs[p].category_id_2) )
+                                  {
                                     console.log(data.train_pairs[p]);
-                                        sep_val = data.train_pairs[p].result_flag;
+                                    sep_val = data.train_pairs[p].result_flag;
 
-                                        for(var k=0; k<data.train_pairs[p].result_example1.length; k++)
-                                        {
-                                        if(k>max_num_of_images) break;
-                                        example_did1.push(data.train_pairs[p].result_example1[k]);
-                                        }
-
-                                        for(var k=0; k<data.train_pairs[p].result_example2.length; k++)
-                                        {
-                                        if(k>max_num_of_images) break;
-                                        example_did2.push(data.train_pairs[p].result_example2[k]);
-                                        }
-                                        console.log(category_id_1,category_id_2,sep_val);
-                                        break;
+                                    for(var k=0; k<data.train_pairs[p].result_example1.length; k++)
+                                    {
+                                    if(k>max_num_of_images) break;
+                                    example_did1.push(data.train_pairs[p].result_example1[k]);
                                     }
+
+                                    for(var k=0; k<data.train_pairs[p].result_example2.length; k++)
+                                    {
+                                    if(k>max_num_of_images) break;
+                                    example_did2.push(data.train_pairs[p].result_example2[k]);
+                                    }
+                                    //console.log(category_id_1,category_id_2,sep_val);
+                                    break;
+                                  }
                                 }
                                 var sep_text = "";
                                 var sep_long = "";
+
+                                //sep_val == -2: 計算エラー
                                 if(sep_val== -2){
-                                sep_text = "計算エラー";
-                                sep_long = "<div class='box-title'>計算エラー</div>";
-                                sep_long += "<p>計算時にエラーが発生しました。画像数を増減させてみたりすることで改善される可能性があります。</p>";
+                                  sep_text = "計算エラー";
+
+                                  sep_long = "<div class='box-title'>計算エラー</div>";
+                                  sep_long += "<p>計算時にエラーが発生しました。入力する画像ファイルを変更したりすることで改善する可能性があります。</p>";
                                 }
+
+                                // sep_val == 0: 学習・推論可能
                                 if(sep_val== 0){
-                                sep_text = "学習・推定<br>可能";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に学習・推定を行うことが可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習を行うことが可能です。</p>";
-                                sep_long += "<p>"+"加えて、"+data.train_matrix.col[i]+" に属するデータに関しては、推論時のデータと学習時のデータが共通した性質を持っています。従って、推定も十分な精度で行うことが可能です。"+"</p>";
-                                
-                                sep_long += "<p>"+"加えて、非常に重要なのが、今回ニューラルネットワークは、正しく対象を認識した上で識別を行ったのか、それともその他の手がかりによって識別を行ったのかです。これを確かめるには、以下の図で、正しく物体の位置が赤でハイライトされているかを確認します。"+"</p>";
+                                  sep_text = "学習・推定<br>可能";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += "注目点の例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_gradcam(example_did1,category_id_1,category_id_2);
-                                sep_long += "</div>"
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、"+data.train_matrix.col[j]+" と区別するように学習・推論が可能"+"</div>";
+                                  sep_long += "<p>良い品質の学習画像データです。今回の簡易検証でも、 "+data.train_matrix.col[i]+" と "+data.train_matrix.col[j]+" を区別をするための特徴量をうまく抽出できていますので、ニューラルネットワークの本番学習においても、正常に学習を行うことが可能です。</p>";
+                                  sep_long += "<p>また、学習画像データは十分な多様性を持っています。推論時の画像にも十分に対応可能な汎化性能を期待できます。</p>";
                                 }
+
+                                // sep_val == 1: 学習可能。推論に関してはデータ不在でわからない
                                 if(sep_val== 1){
-                                sep_text = "学習可能";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に識別可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習・識別を行うことが可能です。</p>";
-                                sep_long += "<p>"+"今回は評価データを指定されなかったため評価を行いませんでしたが、通常はこの後、学習データと評価データが作る特徴量が親しいかを分析し、推論時に十分な性能が期待できるかを評価します。"+"</p>";
+                                  sep_text = "学習可能";
 
-                                sep_long += "<p>"+"加えて、非常に重要なのが、今回ニューラルネットワークは、正しく対象を認識した上で識別を行ったのか、それともその他の手がかりによって識別を行ったのかです。これを確かめるには、以下の図で、正しく物体の位置が赤でハイライトされているかを確認します。"+"</p>";
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、"+data.train_matrix.col[j]+" と区別するように学習が可能"+"</div>";
+                                  sep_long += "<p>良い品質の学習画像データです。今回の簡易検証でも、 "+data.train_matrix.col[i]+" と "+data.train_matrix.col[j]+" を区別をするための特徴量をうまく抽出できていますので、ニューラルネットワークの本番学習においても、正常に学習を行うことが可能です。</p>";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += "注目点の例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_gradcam(example_did1,category_id_1,category_id_2);
-                                sep_long += "</div>"
+                                  sep_long += "<p>"+"推論時画像に対する評価は、データが指定されていないため行いませんでした。ニューラルネットワークが、推論時の画像に対しても十分な汎化性能を得られるか検証する場合は、「推論データ」を指定して再度評価を行ってください。"+"</p>";
                                 }
 
+                                // sep_val == 2: データ数不足
                                 if(sep_val== 2){
-                                sep_text = "データ数<br>不足";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、データ数不足 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"は、データ量が不足しており、正常に学習が行なえません。特に、"+data.train_matrix.col[j]+" と比較した時にデータ量不足が顕著です。"+"</p>";
-                                sep_long += "<p>一方で、ニューラルネットが抽出する出力は、 "+data.train_matrix.col[j]+" とは大きく異なっているため、十分なデータ量を揃えて学習をさせた場合、ニューラルネットによる学習・識別を行うことが可能です。</p>";
-                                sep_long += "<p class='next-step'> 推奨される対策 </p>";
-                                sep_long += "<ul>";
-                                sep_long += "<li>"+data.train_matrix.col[i]+"のデータを集め、再度評価する"+"</li>";
-                                sep_long += "</ul>";
+                                  sep_text = "データ数<br>不足";
+
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、"+data.train_matrix.col[j]+" と比べてデータ数不足"+"</div>";
+                                  sep_long += "<p>"+data.train_matrix.col[i]+" は、学習データ数が不足しており、正常に学習が行なえません。特に、 "+data.train_matrix.col[j]+" と比較した時の数量がアンバランスです。"+"</p>";
+                                  sep_long += "<p>特徴量の顕著な違いは抽出出来ていますので、十分な学習データ数を揃えれば、学習を行うことが可能です。</p>";
                                 }
+
+                                // sep_val == 3: 識別困難
                                 if(sep_val== 3){
-                                sep_text = "識別<br>困難";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、識別困難 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"に関し、今回分析に使用した簡易的なニューラルネットワークでは、"+data.train_matrix.col[j]+"と区別を行うための十分な特徴量を見つけることができませんでした。</p>";
+                                  sep_text = "識別<br>困難";
 
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、"+data.train_matrix.col[j]+" と識別が困難"+"</div>";
+                                  sep_long += "<p> 今回の簡易分析では、"+data.train_matrix.col[i]+" と "+data.train_matrix.col[j]+" を区別するための十分な特徴量の違いを見つけることが出来ませんでした。</p>";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += data.train_matrix.col[i]+"のうち、検知漏れが発生した例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_images(example_did1);
-                                sep_long += "</div>"
+                                  sep_long += "<p class='next-step'> 対策 </p>";
+                                  sep_long += "<ul>";
+                                  sep_long += "<li> 本評価ツールへの入力・設定を間違えていないか確認。</li>";
+                                  sep_long += "<li> 学習画像データを第三者に見せた時に、特に指示をしなくともきちんと分類できるかを確認する。もし難しいようであれば、学習時のラベル定義を再考する必要。</li>";
+                                  sep_long += "<li> 学習画像データにあまりにも大きな撮影条件の変化 (屋内・屋外、イラスト・写真、フラッシュあり・なし、など)がある場合、それを一定にして再度学習データを収集。</li>";
+                                  sep_long += "<li> 上記いずれでも改善出来ない場合、ニューラルネットワークの学習や前処理に対する工夫が必要。ディープラーニングの専門家へ相談。</li>";
+                                  sep_long += "</ul>";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += data.train_matrix.col[j]+"が混入した例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_images(example_did2);
-                                sep_long += "</div>"
+                                  sep_long += "<h3 class='example_images'>";
+                                  sep_long += "検知出来なかった例";
+                                  sep_long += "</h3>";
+                                  sep_long += "<div class='example_images'>";
+                                  sep_long += put_images(example_did1);
+                                  sep_long += "</div>"
 
-                                sep_long += "<p class='next-step'> 推奨される対策 </p>";
-                                sep_long += "<ul>";
-                                sep_long += "<li>"+data.train_matrix.col[i]+"と"+data.train_matrix.col[j]+"のデータが、きちんと別カテゴリかを再度確認する</li>";
-                                sep_long += "<li>画像データ間でカテゴリの違い以上に大きな撮影条件の変化 (屋内・屋外、イラスト・写真、フラッシュあり・なし、など)がある場合、それを一定にして再度学習データを収集する。</li>";
-                                sep_long += "<li>"+data.train_matrix.col[i]+"と"+data.train_matrix.col[j]+"のデータを、何も知らない第三者に見せた時に、きちんと分類できるかを確認する。もしできないようであれば、まず人間が識別可能な程度にきれいなデータ作成の方法について、専門家へ相談。</li>";
-                                sep_long += "<li>人間に識別可能な場合には、ニューラルネットワークの学習の工夫による対応が必要。ディープラーニングの専門家へ相談。</li>";
-                                sep_long += "</ul>";
+                                  sep_long += "<h3 class='example_images'>";
+                                  sep_long += "他カテゴリが混入した例";
+                                  sep_long += "</h3>";
+                                  sep_long += "<div class='example_images'>";
+                                  sep_long += put_images(example_did2);
+                                  sep_long += "</div>"
+
                                 }
+
+                                // sep_val == 4: 検知率が低い
                                 if(sep_val== 4){
-                                sep_text = "検知率<br>低";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、検出されず見逃される割合が多い ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"は"+data.train_matrix.col[j]+"の特徴量と区別が付きづらくなっています。今回分析に使用した簡易的なニューラルネットワークでは判断に迷うものが多くありました。その他のニューラルネットワークでも、誤って見逃してしまうことが多く発生する可能性があります。</p>";
+                                  sep_text = "検知率<br>低";
 
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、検知されず見逃されることが多い"+"</div>";
+                                  sep_long += "<p>"+data.train_matrix.col[i]+" は "+data.train_matrix.col[j]+" の特徴量と区別が付きづらくなっています。今回の簡易分析では判断に迷うものが多くありました。ニューラルネットワークの本番学習でも、誤って見逃してしまう可能性があります。</p>";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += data.train_matrix.col[i]+"のうち、検知漏れが発生した例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_images(example_did1);
-                                sep_long += "</div>"
+                                  sep_long += "<p class='next-step'> 対策 </p>";
+                                  sep_long += "<ul>";
+                                  sep_long += "<li> 本評価ツールへの入力・設定を間違えていないか確認。</li>";
+                                  sep_long += "<li> 学習画像データを第三者に見せた時に、特に指示をしなくともきちんと分類できるかを確認する。もし難しいようであれば、学習時のラベル定義を再考する必要。</li>";
+                                  sep_long += "<li> 学習画像データにあまりにも大きな撮影条件の変化 (屋内・屋外、イラスト・写真、フラッシュあり・なし、など)がある場合、それを一定にして再度学習データを収集。</li>";
+                                  sep_long += "<li> 上記いずれでも改善出来ない場合、ニューラルネットワークの学習や前処理に対する工夫が必要。ディープラーニングの専門家へ相談。</li>";
+                                  sep_long += "</ul>";
 
-                                sep_long += "<p class='next-step'> 推奨される対策 </p>";
-                                sep_long += "<ul>";
-                                sep_long += "<li>画像データ収集時の撮影条件を一定に近づけて、再度データを収集。再評価を行う。</li>";
-                                sep_long += "<li>混同されがちなデータを大量に準備し、ニューラルネットワークを学習させる。</li>";
-                                sep_long += "<li>"+data.train_matrix.col[i]+"と"+data.train_matrix.col[j]+"のデータを、何も知らない第三者に見せた時に、期待される以上の精度で区別できるかを確認する。もしできないようであれば、まずきれいなデータ作成の方法について、専門家へ相談。</li>";
-                                sep_long += "<li>人間に識別可能な場合には、ニューラルネットワークの学習の工夫による対応が必要です。ディープラーニングの専門家へ相談。</li>";
-                                sep_long += "</ul>";
+                                  sep_long += "<h3 class='example_images'>";
+                                  sep_long += "検知出来なかった例";
+                                  sep_long += "</h3>";
+                                  sep_long += "<div class='example_images'>";
+                                  sep_long += put_images(example_did1);
+                                  sep_long += "</div>"
 
                                 }
+
+                                // sep_val == 5: 他カテゴリ混入
                                 if(sep_val== 5){
-                                sep_text = "他カテゴリ<br>混入";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、誤検知することが多い ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"は"+data.train_matrix.col[j]+"の特徴量と区別が付きづらくなっています。今回分析に使用した簡易的なニューラルネットワークでは判断に迷うものが多くありました。その他のニューラルネットワークでも、誤検知が多く発生する可能性があります。</p>";
+                                  sep_text = "他カテゴリ<br>混入";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += data.train_matrix.col[j]+"が混入した例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_images(example_did2);
-                                sep_long += "</div>"
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、他カテゴリが混入することが多い"+"</div>";
+                                  sep_long += "<p>"+data.train_matrix.col[i]+" は "+data.train_matrix.col[j]+" の特徴量と区別が付きづらくなっています。今回の簡易分析では判断に迷うものが多くありました。ニューラルネットワークの本番学習でも、他カテゴリが混入する可能性があります。</p>";
 
-                                sep_long += "<p class='next-step'> 推奨される対策 </p>";
-                                sep_long += "<ul>";
-                                sep_long += "<li>画像データ収集時の撮影条件を一定に近づけて、再度データを収集。再評価を行う。</li>";
-                                sep_long += "<li>混同されがちなデータを大量に準備し、ニューラルネットワークを学習させる。</li>";
-                                sep_long += "<li>"+data.train_matrix.col[i]+"と"+data.train_matrix.col[j]+"のデータを、何も知らない第三者に見せた時に、期待される以上の精度で区別できるかを確認する。もしできないようであれば、まずきれいなデータ作成の方法について、専門家へ相談。</li>";
-                                sep_long += "<li>人間に識別可能な場合には、ニューラルネットワークの学習の工夫による対応が必要です。ディープラーニングの専門家へ相談。</li>";
-                                sep_long += "</ul>";
+                                  sep_long += "<p class='next-step'> 対策 </p>";
+                                  sep_long += "<ul>";
+                                  sep_long += "<li> 本評価ツールへの入力・設定を間違えていないか確認。</li>";
+                                  sep_long += "<li> 学習画像データを第三者に見せた時に、特に指示をしなくともきちんと分類できるかを確認する。もし難しいようであれば、学習時のラベル定義を再考する必要。</li>";
+                                  sep_long += "<li> 学習画像データにあまりにも大きな撮影条件の変化 (屋内・屋外、イラスト・写真、フラッシュあり・なし、など)がある場合、それを一定にして再度学習データを収集。</li>";
+                                  sep_long += "<li> 上記いずれでも改善出来ない場合、ニューラルネットワークの学習や前処理に対する工夫が必要。ディープラーニングの専門家へ相談。</li>";
+                                  sep_long += "</ul>";
+
+                                  sep_long += "<h3 class='example_images'>";
+                                  sep_long += "他カテゴリが混入した例";
+                                  sep_long += "</h3>";
+                                  sep_long += "<div class='example_images'>";
+                                  sep_long += put_images(example_did2);
+                                  sep_long += "</div>"
+
                                 }
+
+                                // sep_val == 6: 学習は可能ながら、推定は困難
                                 if(sep_val== 6){
-                                sep_text = "学習可能・<br>推定困難";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、正常に学習・推定を行うことが可能 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量をうまく抽出できています。そのため、ニューラルネットによる学習を行うことが可能です。</p>";
-                                sep_long += "<p>"+"一方で、"+data.train_matrix.col[i]+" に属するデータに関しては、推論時のデータと学習時のデータの性質が大きく異なり、推定時に十分な性能が出せない可能性があります。"+"</p>";
+                                  sep_text = "学習可能・<br>推定困難";
+
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、"+data.train_matrix.col[j]+" と区別するように学習が可能だが、推論は困難"+"</div>";
+                                  sep_long += "<p>良い品質の学習画像データです。今回の簡易検証でも、 "+data.train_matrix.col[i]+" と "+data.train_matrix.col[j]+" を区別をするための特徴量をうまく抽出できていますので、ニューラルネットワークの本番学習においても、正常に学習を行うことが可能です。</p>";
+                                  sep_long += "<p>"+"しかしながら、推論時画像の傾向が学習画像とは異なっているため、ニューラルネットワークの汎化性能によっては、推論時に十分な性能出せない可能性があります。"+"</p>";
+
+                                  sep_long += "<p class='next-step'> 対策 </p>";
+                                  sep_long += "<ul>";
+                                  sep_long += "<li> 本評価ツールへの入力・設定を間違えていないか確認。</li>";
+                                  sep_long += "<li> 推論時画像に近い条件での学習データを取得する。</li>";
+                                  sep_long += "<li> 上記いずれでも改善出来ない場合、データ収集の方法や、ニューラルネットワークの学習・前処理に対する工夫が必要。ディープラーニングの専門家へ相談。</li>";
+                                  sep_long += "</ul>";
                                 }
+
+                                // sep_val == 7: 背景などに引っ張られ、学習困難
                                 if(sep_val== 7){
-                                sep_text = "偏った<br>データ";
-                                sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、学習データが偏っており汎化性能獲得困難 ("+data.train_matrix.col[j]+"に対して)"+"</div>";
-                                sep_long += "<p>"+data.train_matrix.col[i]+"に対して、ニューラルネットは、"+data.train_matrix.col[j]+" と区別をするための特徴量を、背景等、本質的でない箇所より取得しています。それらに頼った学習を行っている結果、背景等を変化させた場合に極端に性能が落ちることがあります。</p>";
+                                  sep_text = "低品質<br>データ";
 
-                                sep_long += "<h3 class='example_images'>";
-                                sep_long += "注目点の例";
-                                sep_long += "</h3>";
-                                sep_long += "<div class='example_images'>";
-                                sep_long += put_gradcam(example_did1,category_id_1,category_id_2);
-                                sep_long += "</div>"
+                                  sep_long = "<div class='box-title'>"+data.train_matrix.col[i]+" は、誤った手がかりを参照しており、汎用的な推論は困難"+"</div>";
+                                  sep_long += "<p>"+data.train_matrix.col[i]+" と "+data.train_matrix.col[j]+" を区別をする際に、ニューラルネットワークは、対象物体とは異なる箇所に注目して学習してしまう可能性があります。例えば、撮影時の背景がカテゴリごとに異なっていたりすると、ニューラルネットワークは背景に着目して学習してしまうため、この問題が発生します。結果として汎化性能は低下し、推論時の性能は限定的となります。</p>";
+
+                                  sep_long += "<p class='next-step'> 対策 </p>";
+                                  sep_long += "<ul>";
+                                  sep_long += "<li> 下記注目点でハイライトされている箇所に関し、極力条件が一緒になるよう調整し、再度学習データを収集。</li>";
+                                  sep_long += "<li> 汎化性能を向上させるための、ニューラルネットワークの学習・前処理に対する工夫を行う。ディープラーニングの専門家へ相談。</li>";
+                                  sep_long += "</ul>";
+
+                                  sep_long += "<h3 class='example_images'>";
+                                  sep_long += "注目点の例";
+                                  sep_long += "</h3>";
+                                  sep_long += "<div class='example_images'>";
+                                  sep_long += put_gradcam(example_did1,category_id_1,category_id_2);
+                                  sep_long += "</div>"
                                 }
 
+                                // 書き込み
                                 var sep_id = "sep_"+i+"_"+j;
                                 long_text[sep_id] = sep_long;
                                 $("#separationTable tbody tr").last().append("<td id='"+sep_id+"' class='sep_td_"+sep_val+"'>"+sep_text+"</td>");
@@ -570,22 +593,23 @@
 
   <body>
     <!-- ヘッダ -->
-    <h1> DTDL: Data Tester for Deep Learning </h1>
+    <h1> Rapid Data Diagnosis Tool for Deep Learning <br> ディープラーニングのためのデータ品質迅速診断ツール </h1>
 
     <div class="introduction">
-    <p> Deep Learningを用いた画像認識アルゴリズムでは、大量の画像を学習させることにより、自動的に認識の手がかりとなる特徴量を見つけ出すようなニューラルネットワークを構築します。学習の結果、十分な精度が出るか否かは、ニューラルネットワークの構造と学習データの品質によって大きく左右されます。</p>
-    <p>前者のニューラルネットワークの構造に関しては、近年の活発な研究の成果として幅広いケースに対応可能な汎用モデルができつつあり、よほど精度を追求しない限りは、ユーザが意識する必要はなくなりつつあります。</p>
-    <p>一方で、学習データに関してはユーザが強く意識をし、品質を保つよう務めなくてはなりません。さもないと、長期間・高いコストをかけ、大量のデータを集めても、いざ学習させてみたら精度が全く出ないといったことも起こりかねません。その場合、再度学習データ収集のやり方を見直すという手間が発生してしまいます。</p>
-    <p>本ツールは、収集されたデータの品質を確認するための迅速診断を可能にすることで、データ収集開始直後から手戻りの無いよう確認を行うことができるサービスを提供します。</p>
-    </div>
+    <p>ディープラーニングの学習で思うような性能が出せないとき、学習データ自体に問題があることが大半です。</p>
+    <p>本ツールは、学習データの品質を迅速に診断することで、問題の所在（学習データかモデルか）の切り分けをお手伝いします。</p>
+    <p>学習データを大量に収集する前のデータの品質確認に活用すれば、莫大な費用・期間が無駄になってしまうことも防げます。</p>
 
     <!-- データ送信を行う -->
     <h2> Step1: データのアップロード </h2>
-    "アップロード進捗"バーの上に複数ファイルをドラッグアンドドロップ、もしくはクリックすることでファイルをアップロード
-    <br>
+    <div>
+      <p> まず、学習用画像データをアップロードしましょう。学習データのカテゴリ名 (例えば、「犬」「猫」、など)を入力してください。行が足りなくなったら、「一行追加」を押して追加してください。 </p>
+      <p> すべてのカテゴリが追加出来たら、学習画像データをアップロードします。「アップロード進捗」の文字の上に、あなたのPCのフォルダから、画像ファイルをドラッグアンドドロップしてください。正しく評価を行うためには、10-100枚程度の画像をアップロードする必要があります。 </p>
+    </div>
 
-
-    その後、分析結果がわかりやすいような"カテゴリ名"を指定します。それぞれのカテゴリが、学習データに属しているか、評価用のデータかも指定します。
+    <div>
+      <p> 学習用画像だけでも、以降の評価を行うことはできますが、より正しい評価を行うためには、推論時に入れる予定の画像データも同様にアップロードすることをおすすめします。</p>
+      <p> 学習用画像と同じ要領で画像データをアップロードします。その際、(1) カテゴリ名は対応する学習画像のカテゴリと同じにする (2) 「データ種別」を推論時画像にする、の2点を忘れずに行ってください。</p>
 
     <div>
       <table id="dataTable" width=100%>
@@ -609,7 +633,8 @@
 
     <!-- 分離度のチェックを行う -->
     <h2> Step2: データの評価 </h2>
-    以下のボタンを押して、データの評価を開始します。計算は数秒で完了します。その後いくつかの質問が表示される場合があります。
+    <p> 「評価を開始」ボタンを押して、画像データの評価を開始しましょう。特別なニューラルネットワークを用いているため、評価は数秒で完了します。</p>
+    <p>データの品質をさらに評価するために、さらにいくつかの質問事項が表示される場合があります。</p>
     <div>
         <div id="evaluate_start" class="square_btn">評価を開始</div>
     </div>
@@ -621,8 +646,9 @@
     <!-- 結果の表示 -->
     <h2> Step3: 結果の確認 </h2>
 
-    学習するデータカテゴリ間で特徴的な差異が存在する場合、より学習がしやすくなります。
-    ここでは、その差異の程度を表示しています。
+    <p> 評価結果は以下の通りになります。 </p>
+    <p> カテゴリを、行ごとに横に見ていきます。各セルは、行カテゴリが、列に示されたカテゴリから識別できるかどうかを表示しています。</p>
+    <p> 詳細な説明と、学習データへの意味合いは、各セルをクリックすることで下部に表示されます。</p>
 
     <table id="separationTable" width=90%>
         <tbody>
@@ -636,10 +662,10 @@
       </div>
     </div>
 
-    <h2> Step4: サーバー内のデータの削除 </h2>
-    一連の評価が終わったら、以下のボタンを押し、サーバー中のデータを削除します。
+    <h2> Step4: アップロードされたデータの削除 </h2>
+    評価が終わったら、以下のボタンを押して、アップロードされたデータを削除します。
     <button class="button_red project_del">
-        サーバー内のデータを削除
+        アップロードされたデータを削除
     </button>
   </body>
 </html>
