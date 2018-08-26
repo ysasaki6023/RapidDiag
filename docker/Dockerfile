@@ -82,6 +82,7 @@ EXPOSE 8080
 #CMD jupyter notebook --port=8888 --ip=0.0.0.0
 
 # RUN: docker buildするときに実行される
+ADD https://api.github.com/repos/ysasaki6023/RapidDiag/git/refs/heads/release version.json
 RUN git clone https://github.com/ysasaki6023/RapidDiag.git
 WORKDIR RapidDiag
 RUN git checkout ${api_version}
