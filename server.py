@@ -131,6 +131,10 @@ def new_project():
     cur.execute("create table IF NOT EXISTS DataDB__{} (category_id integer, data_id integer, filename text, feature array, image blob, primary key(category_id,data_id))".format(CategoryDB_name))
     con.commit()
 
+    # GradDB__XXを作成
+    cur.execute("create table IF NOT EXISTS GradDB__{} (category_id_1 integer, category_id_2 integer, num_good integer, num_total integer, primary key(category_id_1,category_id_2))".format(CategoryDB_name))
+    con.commit()
+
     # ProjectDBに記録
     user_name = session['user_name']
     project_name = session['project_name']
@@ -172,6 +176,13 @@ def del_project():
         cur.execute("DROP TABLE DataDB__{}".format(CategoryDB_name))
         con.commit()
         print("delete DataDB__{}".format(CategoryDB_name))
+    except:
+        pass
+    ##
+    try:
+        cur.execute("DROP TABLE GradDB__{}".format(CategoryDB_name))
+        con.commit()
+        print("delete GradDB__{}".format(CategoryDB_name))
     except:
         pass
 
@@ -223,6 +234,8 @@ def add_category():
     cur.execute("SELECT count(*) from sqlite_master where type='table' and name='CategoryDB__{}'".format(CategoryDB_name));
     if cur.fetchone()[0]==0: new_project()
     cur.execute("SELECT count(*) from sqlite_master where type='table' and name='DataDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='GradDB__{}'".format(CategoryDB_name));
     if cur.fetchone()[0]==0: new_project()
 
     # カテゴリを追加
@@ -277,6 +290,8 @@ def get_category():
     if cur.fetchone()[0]==0: new_project()
     cur.execute("SELECT count(*) from sqlite_master where type='table' and name='DataDB__{}'".format(CategoryDB_name));
     if cur.fetchone()[0]==0: new_project()
+    cur.execute("SELECT count(*) from sqlite_master where type='table' and name='GradDB__{}'".format(CategoryDB_name));
+    if cur.fetchone()[0]==0: new_project()
 
     cur.execute("SELECT * from CategoryDB__{}".format(CategoryDB_name))
     res = {"count":0,"items":[]}
@@ -307,6 +322,58 @@ def delete_category():
     # もし、DataDBにデータがあるのならば、それらも削除
     cur.execute("DELETE FROM DataDB__{} WHERE category_id=?".format(CategoryDB_name),
                 (category_id,))
+    con.commit()
+
+    # もし、GradDBにデータがあるのならば、それらも削除
+    cur.execute("DELETE FROM GradDB__{} WHERE category_id_1=?".format(CategoryDB_name),
+                (category_id,))
+    cur.execute("DELETE FROM GradDB__{} WHERE category_id_2=?".format(CategoryDB_name),
+                (category_id,))
+    con.commit()
+
+    return jsonify({"status":"success"})
+
+#################################################################################
+@app.route('/input_grad',methods=["POST"])
+@login_required
+def input_grad():
+    category_id_1  = request.json['category_id_1']
+    category_id_2  = request.json['category_id_2']
+    num_good       = request.json['num_good']
+    num_total      = request.json['num_total']
+    try:
+        category_id_1  = request.json['category_id_1']
+        category_id_2  = request.json['category_id_2']
+        num_good       = request.json['num_good']
+        num_total      = request.json['num_total']
+    except:
+        return jsonify({"status":"fail"})
+    print(category_id_1,category_id_2,num_good,num_total)
+
+    # DBを更新
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
+    cur = con.cursor()
+
+    # TODO:Updateのみに修正
+    if num_total==0: 
+        return jsonify({"status":"fail"})
+    cur.execute("REPLACE into GradDB__{} values (?,?,?,?)".format(CategoryDB_name), 
+                (category_id_1, category_id_2, num_good, num_total))
+    con.commit()
+
+    return jsonify({"status":"success"})
+
+@app.route('/delete_grad',methods=["POST"])
+@login_required
+def delete_grad():
+    # DBを更新
+    CategoryDB_name = generate_CategoryDB_name()
+    con = sqlite3.connect(DBFilePath,isolation_level="DEFERRED",timeout=60*1000)
+    cur = con.cursor()
+
+    # TODO:Updateのみに修正
+    cur.execute("DELETE FROM GradDB__{}".format(CategoryDB_name))
     con.commit()
 
     return jsonify({"status":"success"})
@@ -375,9 +442,29 @@ def evaluate():
             item["category_name_1"] = category_name[c1]
             item["category_name_2"] = category_name[c2]
             jRes = rds.judge_one(arr1,arr2,nbins=100,thres_recall=0.8,thres_prec=0.8)
-            item["result_flag"] =flag= jRes["judgement"]
+            thres_good_gradcam = 0.7
+            flag= jRes["judgement"]
             item["result_example1"] = []
             item["result_example2"] = []
+
+            # GradCamの結果があれば更に詳細化
+            cur.execute("SELECT * from GradDB__{} WHERE category_id_1=? and category_id_2=?".format(CategoryDB_name),
+                    (c1,c2))
+            ff = cur.fetchone()
+            if flag==0 or flag==1: # 学習もしくは推定可能
+                print(flag)
+                if ff:
+                    print("ff=",ff,"at",c1,c2)
+                    n_good  = ff[-2]
+                    n_total = ff[-1]
+                    if n_good < n_total*thres_good_gradcam:
+                        flag = 7 # 変なところを見てしまっている
+                    else:
+                        pass # 正しいところを見ている。今のままのフラグで良い
+                else:
+                    flag = -3 # gradCamによる評価が必要
+
+            item["result_flag"] = flag
 
             test_items.append({"c2":c2,"max_acc_unnorm_val":jRes["max_acc_unnorm_val"],"mean_vector_0":jRes["mean_vector_0"],"mean_vector_1":jRes["mean_vector_1"],"mean_vector_0_to_1":jRes["mean_vector_0_to_1"],"judgement":jRes["judgement"]})
 
@@ -385,7 +472,7 @@ def evaluate():
             example_did1 = [(c1,did1[i]) for i in jRes["NG_recall_example_index"].tolist()]
             example_did2 = [(c2,did2[i]) for i in jRes["NG_prec_example_index"].tolist()]
             #example_did = []
-            if flag==0 or flag==1: # 正解データを入れていく
+            if flag==0 or flag==1 or flag==-3 or flag==7: # 正解データを入れていく
                 item["result_example1"] = [(c1,x) for x in did1]
                 item["result_example2"] = []
             elif flag==3: # 互い違いに入れていく

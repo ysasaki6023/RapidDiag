@@ -76,6 +76,11 @@ h2 {
    color: #000000;/*文字色*/
 }
 
+#separationTable .sep_td_7 {
+   background: #9573FF;
+   color: #000000;/*文字色*/
+}
+
 .sep_box {
     margin: 2em 0;
     background: #dcefff;
