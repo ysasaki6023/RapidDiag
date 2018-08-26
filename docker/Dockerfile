@@ -1,4 +1,4 @@
-ARG api_version=v1.1
+ARG api_version=release
 ARG cuda_version=9.0
 ARG cudnn_version=7
 FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
