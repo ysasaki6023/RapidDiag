@@ -1,10 +1,11 @@
-ARG api_version=release
+ARG api_version=v1.1
 ARG cuda_version=9.0
 ARG cudnn_version=7
 FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
 
 # Install system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      vim \
       bzip2 \
       g++ \
       git \
@@ -12,8 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1-mesa-glx \
       libhdf5-dev \
       openmpi-bin \
-      wget && \
-    rm -rf /var/lib/apt/lists/*
+      wget
 
 # Install conda
 ENV CONDA_DIR /opt/conda
@@ -42,8 +42,7 @@ RUN conda install -y python=${python_version} && \
     pip install --upgrade pip && \
     pip install \
       sklearn_pandas \
-      tensorflow && \
-    pip install https://cntk.ai/PythonWheel/CPU-Only/cntk-2.1-cp36-cp36m-linux_x86_64.whl
+      tensorflow
 
 RUN conda install \
       bcolz \
@@ -70,6 +69,7 @@ RUN pip install \
       sklearn \
       tqdm \
       opencv-python
+
 
 #ADD theanorc /home/keras/.theanorc
 
