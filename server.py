@@ -72,10 +72,10 @@ def login():
 
         <body>
             <h1> ユーザーの作成・ログイン </h1>
-            ユーザー名を指定してください。
+            ユーザー名を指定してください。新規ユーザーの場合は、登録するユーザー名を指定してください。
             <form method="post">
-                ユーザー名: <p><input type=text name=user_name>
-                <p><input type=submit value=Login>
+                <p>ユーザー名: <input type=text name=user_name></p>
+                <p><input type=submit value=Login></p>
             </form>
         </body>
     </html>
