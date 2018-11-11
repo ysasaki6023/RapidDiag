@@ -502,4 +502,5 @@ def gradcam(category_id_1,category_id_2,data_id_1):
 
 #################################################################################
 if __name__ == '__main__':
-    app.run()
+    #app.run()
+    app.run(debug=False, host='0.0.0.0', port=80)
