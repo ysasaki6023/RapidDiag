@@ -65,10 +65,20 @@ def login():
         session['user_name'] = request.form['user_name']
         return redirect(url_for('index'))
     return '''
-        <form method="post">
-            <p><input type=text name=user_name>
-            <p><input type=submit value=Login>
-        </form>
+    <html>
+        <head>
+        <title> ログイン </title>
+        </head>
+
+        <body>
+            <h1> ユーザーの作成・ログイン </h1>
+            ユーザー名を指定してください。
+            <form method="post">
+                ユーザー名: <p><input type=text name=user_name>
+                <p><input type=submit value=Login>
+            </form>
+        </body>
+    </html>
     '''
 
 def login_required(f):
